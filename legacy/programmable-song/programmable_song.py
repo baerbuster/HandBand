@@ -21,23 +21,29 @@ is_stopping = False
 stop_sample_position = 0
 stop_complete = False
 
-measure1_list = ["measure1.1", "measure1.2", "measure1.3", "measure1.4", "measure1.5", "measure1.6", "measure1.7", "measure1.8"]
-measure2_list = ["measure2.1", "measure2.2", "measure2.3", "measure2.4", "measure2.5", "measure2.6", "measure2.7", "measure2.8"]
-loop1file_list = ["ProgrammableLoop1.1.wav", "ProgrammableLoop1.2.wav", "ProgrammableLoop1.3.wav", "ProgrammableLoop1.4.wav", "ProgrammableLoop1.5.wav", "ProgrammableLoop1.6.wav", "ProgrammableLoop1.7.wav", "ProgrammableLoop1.8.wav"]
-loop2file_list = ["ProgrammableLoop2.1.wav", "ProgrammableLoop2.2.wav", "ProgrammableLoop2.3.wav", "ProgrammableLoop2.4.wav", "ProgrammableLoop2.5.wav", "ProgrammableLoop2.6.wav", "ProgrammableLoop2.7.wav", "ProgrammableLoop2.8.wav"]
+# Define measure and file groups
+measure1_list = [f"measure1.{i+1}" for i in range(8)]
+measure2_list = [f"measure2.{i+1}" for i in range(8)]
+measure3_list = [f"measure3.{i+1}" for i in range(4)]
+loop1file_list = [f"ProgrammableLoop1.{i+1}.wav" for i in range(8)]
+loop2file_list = [f"ProgrammableLoop2.{i+1}.wav" for i in range(8)]
+loop3file_list = [f"ProgrammableLoop3.{i+1}.wav" for i in range(4)]
+
+measure_groups = [measure1_list, measure2_list, measure3_list]
+file_groups = [loop1file_list, loop2file_list, loop3file_list]
+num_groups = len(measure_groups)
 
 slider_value = 0.0  # Shared var for slider state
 
 # === Load Audio ===
 def load_audio():
     global buffers, sample_rate
-    for measures, loop1file in zip(measure1_list, loop1file_list):
-        buffers[measures], sample_rate = sf.read(loop1file, dtype='float32')
-    for measures, loop2file in zip(measure2_list, loop2file_list):
-        buffers[measures], sample_rate = sf.read(loop2file, dtype='float32')
-    for key in buffers:
-        if buffers[key].ndim == 2:
-            buffers[key] = np.mean(buffers[key], axis=1)
+    for group, files in zip(measure_groups, file_groups):
+        for measure, filename in zip(group, files):
+            data, sample_rate = sf.read(filename, dtype='float32')
+            if data.ndim == 2:
+                data = np.mean(data, axis=1)
+            buffers[measure] = data
 
 # === Audio Callback ===
 def audio_callback(outdata, frames, time_info, status):
@@ -45,25 +51,20 @@ def audio_callback(outdata, frames, time_info, status):
     global is_stopping, stop_sample_position, stop_complete
 
     with lock:
-        buffer = buffers[current_measure]
         val = slider_value
 
+    group_index = int(val * (num_groups - 1))
+    current_group = measure_groups[group_index]
+
+    buffer = buffers[current_measure]
     out = np.zeros(frames, dtype='float32')
     length = len(buffer)
 
     for i in range(frames):
         if sample_position >= length:
             sample_position = 0
-
-            # Advance measure_index safely
-            measure_index = (measure_index + 1) % len(measure1_list)
-
-            # Choose next measure list
-            if current_measure in measure1_list:
-                next_measure = measure2_list[measure_index] if val == 1.0 else measure1_list[measure_index]
-            else:
-                next_measure = measure1_list[measure_index] if val == 0.0 else measure2_list[measure_index]
-
+            measure_index = (measure_index + 1) % len(current_group)
+            next_measure = current_group[measure_index]
             current_measure = next_measure
             buffer = buffers[current_measure]
             length = len(buffer)
@@ -85,10 +86,11 @@ def audio_callback(outdata, frames, time_info, status):
 
 # === Start/Stop Audio ===
 def start_audio():
-    global stream, sample_position, measure_index, stop_complete
+    global stream, sample_position, measure_index, stop_complete, current_measure
     sample_position = 0
     measure_index = 0
     stop_complete = False
+    current_measure = measure_groups[0][0]
     stream = sd.OutputStream(callback=audio_callback, samplerate=sample_rate, channels=1, dtype='float32')
     stream.start()
 
@@ -118,12 +120,29 @@ root = tk.Tk()
 root.title("Measure Switcher")
 root.geometry('500x300')
 
-slider = tk.Scale(root, from_=0, to=1, orient=tk.HORIZONTAL, label="Select Measure", command=update_measure)
-slider.pack(padx=20, pady=20)
+# Create a frame for the slider and custom labels
+slider_frame = tk.Frame(root)
+slider_frame.pack(pady=40)
 
+# Slider setup (no number shown)
+slider = tk.Scale(slider_frame, from_=0, to=1, resolution=0.5,
+                  orient=tk.HORIZONTAL, showvalue=0, length=300, command=update_measure)
+slider.grid(row=1, column=0)
+
+# Labels above the slider
+label_canvas = tk.Canvas(slider_frame, width=300, height=20, highlightthickness=0)
+label_canvas.grid(row=0, column=0)
+
+# Positions for labels
+label_canvas.create_text(0, 10, text="Sad", anchor='w')
+label_canvas.create_text(150, 10, text="|", anchor='center')
+label_canvas.create_text(300, 10, text="Happy", anchor='e')
+
+# Play button
 play_button = tk.Button(root, text="Play", command=start_audio)
 play_button.pack(padx=20, pady=10)
 
+# Stop button
 stop_button = tk.Button(root, text="Stop", command=stop_audio)
 stop_button.pack(padx=20, pady=10)
 
