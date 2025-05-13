@@ -9,23 +9,20 @@ import time
 buffers = {}
 sample_rate = 44100
 sample_position = 0
-current_measure = "measure1.1"
-next_measure = "measure1.2"
+current_measure = None
 measure_index = 0
 lock = threading.Lock()
 stream = None
 
 fade_out_duration = 2  # seconds
-durations = {
-    'fade_out': fade_out_duration,
-}
+durations = {'fade_out': fade_out_duration}
 fade_out_samples = int(fade_out_duration * sample_rate)
 is_stopping = False
 stop_sample_position = 0
 stop_complete = False
 
 # Emotion slider value between 0.0 and 1.0
-slider_value = 0.5  # default at center -> 0 dB
+slider_value = 0.5  # default center
 
 # Define measure and file groups
 measure1_list = [f"measure1.{i+1}" for i in range(8)]
@@ -51,54 +48,68 @@ def load_audio():
 
 # === Audio Callback ===
 def audio_callback(outdata, frames, time_info, status):
-    global sample_position, current_measure, next_measure, measure_index
+    global sample_position, current_measure, measure_index
     global is_stopping, stop_sample_position, stop_complete
 
-    # Compute linear gain from slider_value in dB (-2 dB to +2 dB)
+    # Compute linear gain from slider_value in dB (-2 to +2 dB)
     with lock:
         val = slider_value
-    gain_db = (val - 0.5) * 4.0  # maps [0,1] -> [-2,+2] dB
+    gain_db = (val - 0.5) * 4.0
     amp = 10 ** (gain_db / 20.0)
 
-    # Select current measure group based on slider (emotion) if groups vary
+    # Determine current group from slider
     group_index = int(val * (num_groups - 1))
     current_group = measure_groups[group_index]
 
-    buffer = buffers[current_measure]
+    # Ensure current_measure is set
+    if current_measure is None or current_measure not in buffers:
+        return
+
+    buf = buffers[current_measure]
+    length = len(buf)
     out = np.zeros(frames, dtype='float32')
-    length = len(buffer)
 
-    for i in range(frames):
-        if sample_position >= length:
-            sample_position = 0
-            measure_index = (measure_index + 1) % len(current_group)
-            next_measure = current_group[measure_index]
-            current_measure = next_measure
-            buffer = buffers[current_measure]
-            length = len(buffer)
+    # Fetch chunk
+    end_pos = sample_position + frames
+    if end_pos <= length:
+        chunk = buf[sample_position:end_pos]
+    else:
+        # wrap around and advance measure
+        first = buf[sample_position:]
+        remaining = end_pos - length
+        measure_index = (measure_index + 1) % len(current_group)
+        current_measure = current_group[measure_index]
+        buf2 = buffers[current_measure]
+        chunk = np.concatenate((first, buf2[:remaining]))
+    sample_position = end_pos % length
 
-        if is_stopping:
-            if stop_sample_position < fade_out_samples:
-                fade_factor = 1 - (stop_sample_position / fade_out_samples)
-                out[i] = buffer[sample_position] * fade_factor * amp
-                stop_sample_position += 1
-            else:
-                out[i] = 0
-                stop_complete = True
-        else:
-            out[i] = buffer[sample_position] * amp
-
-        sample_position += 1
+    if is_stopping:
+        # vectorized fade-out envelope
+        start = stop_sample_position
+        stop = min(stop_sample_position + frames, fade_out_samples)
+        env = np.linspace(1, 0, fade_out_samples)[start:stop]
+        if len(env) < frames:
+            env = np.pad(env, (0, frames - len(env)), 'constant', constant_values=(0,))
+        out[:] = chunk * env * amp
+        stop_sample_position = stop
+        if stop_sample_position >= fade_out_samples:
+            stop_complete = True
+    else:
+        out[:] = chunk * amp
 
     outdata[:] = out.reshape(-1, 1)
 
 # === Start/Stop Audio ===
 def start_audio():
     global stream, sample_position, measure_index, stop_complete, current_measure
+    with lock:
+        val = slider_value
+    # initialize measure based on slider
+    group_index = int(val * (num_groups - 1))
+    current_measure = measure_groups[group_index][0]
     sample_position = 0
     measure_index = 0
     stop_complete = False
-    current_measure = measure_groups[0][0]
     stream = sd.OutputStream(callback=audio_callback,
                              samplerate=sample_rate,
                              channels=1,
@@ -112,10 +123,8 @@ def stop_audio():
         is_stopping = True
         stop_sample_position = 0
         stop_complete = False
-
         while not stop_complete:
             time.sleep(0.01)
-
         stream.stop()
         stream.close()
         is_stopping = False
@@ -135,7 +144,6 @@ root.geometry('500x300')
 # Emotion/Measure slider
 slider_frame = tk.Frame(root)
 slider_frame.pack(pady=40)
-
 slider = tk.Scale(slider_frame,
                   from_=0, to=1,
                   resolution=0.5,
@@ -155,8 +163,6 @@ label_canvas.create_text(300, 10, text="Happy", anchor='e')
 # Play/Stop buttons
 play_button = tk.Button(root, text="Play", command=start_audio)
 play_button.pack(padx=20, pady=10)
-
 stop_button = tk.Button(root, text="Stop", command=stop_audio)
 stop_button.pack(padx=20, pady=10)
-
 root.mainloop()
