@@ -4,6 +4,7 @@ import numpy as np
 import tkinter as tk
 import threading
 import time
+import librosa
 
 # === Variables ===
 buffers = {}
@@ -39,29 +40,29 @@ num_groups = len(measure_groups)
 # === Load Audio ===
 def load_audio():
     global buffers, sample_rate
-    for group, files in zip(measure_groups, file_groups):
+    for group_idx, (group, files) in enumerate(zip(measure_groups, file_groups)):
+        tempo_shift = 1 + (group_idx / (num_groups - 1) - 0.5) * 0.10  # ±5%
         for measure, filename in zip(group, files):
-            data, sample_rate = sf.read(filename, dtype='float32')
+            data, sr = sf.read(filename, dtype='float32')
             if data.ndim == 2:
                 data = np.mean(data, axis=1)
+            data = librosa.effects.time_stretch(data, rate=tempo_shift)
             buffers[measure] = data
+            sample_rate = sr
 
 # === Audio Callback ===
 def audio_callback(outdata, frames, time_info, status):
     global sample_position, current_measure, measure_index
     global is_stopping, stop_sample_position, stop_complete
 
-    # Compute linear gain from slider_value in dB (-2 to +2 dB)
     with lock:
         val = slider_value
-    gain_db = (val - 0.5) * 4.0
+    gain_db = (val - 0.5) * 2.0  # ±1 dB
     amp = 10 ** (gain_db / 20.0)
 
-    # Determine current group from slider
     group_index = int(val * (num_groups - 1))
     current_group = measure_groups[group_index]
 
-    # Ensure current_measure is set
     if current_measure is None or current_measure not in buffers:
         return
 
@@ -69,12 +70,10 @@ def audio_callback(outdata, frames, time_info, status):
     length = len(buf)
     out = np.zeros(frames, dtype='float32')
 
-    # Fetch chunk
     end_pos = sample_position + frames
     if end_pos <= length:
         chunk = buf[sample_position:end_pos]
     else:
-        # wrap around and advance measure
         first = buf[sample_position:]
         remaining = end_pos - length
         measure_index = (measure_index + 1) % len(current_group)
@@ -84,7 +83,6 @@ def audio_callback(outdata, frames, time_info, status):
     sample_position = end_pos % length
 
     if is_stopping:
-        # vectorized fade-out envelope
         start = stop_sample_position
         stop = min(stop_sample_position + frames, fade_out_samples)
         env = np.linspace(1, 0, fade_out_samples)[start:stop]
@@ -104,7 +102,6 @@ def start_audio():
     global stream, sample_position, measure_index, stop_complete, current_measure
     with lock:
         val = slider_value
-    # initialize measure based on slider
     group_index = int(val * (num_groups - 1))
     current_measure = measure_groups[group_index][0]
     sample_position = 0
@@ -115,7 +112,6 @@ def start_audio():
                              channels=1,
                              dtype='float32')
     stream.start()
-
 
 def stop_audio():
     global stream, is_stopping, stop_sample_position, stop_complete
@@ -138,10 +134,9 @@ def update_measure(val):
 # === GUI ===
 load_audio()
 root = tk.Tk()
-root.title("Measure Switcher with ±2 dB Gain")
+root.title("Measure Switcher with ±1 dB Gain & Tempo Shift")
 root.geometry('500x300')
 
-# Emotion/Measure slider
 slider_frame = tk.Frame(root)
 slider_frame.pack(pady=40)
 slider = tk.Scale(slider_frame,
@@ -160,9 +155,9 @@ label_canvas.create_text(0, 10, text="Sad", anchor='w')
 label_canvas.create_text(150, 10, text="|", anchor='center')
 label_canvas.create_text(300, 10, text="Happy", anchor='e')
 
-# Play/Stop buttons
 play_button = tk.Button(root, text="Play", command=start_audio)
 play_button.pack(padx=20, pady=10)
 stop_button = tk.Button(root, text="Stop", command=stop_audio)
 stop_button.pack(padx=20, pady=10)
+
 root.mainloop()
