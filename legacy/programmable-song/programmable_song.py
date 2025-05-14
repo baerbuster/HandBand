@@ -5,6 +5,7 @@ import tkinter as tk
 import threading
 import time
 import librosa
+from scipy.signal import firwin2, lfilter
 
 # === Variables ===
 buffers = {}
@@ -22,10 +23,8 @@ is_stopping = False
 stop_sample_position = 0
 stop_complete = False
 
-# Emotion slider value between 0.0 and 1.0
 slider_value = 0.5  # default center
 
-# Define measure and file groups
 measure1_list = [f"measure1.{i+1}" for i in range(8)]
 measure2_list = [f"measure2.{i+1}" for i in range(8)]
 measure3_list = [f"measure3.{i+1}" for i in range(4)]
@@ -47,6 +46,27 @@ def load_audio():
             if data.ndim == 2:
                 data = np.mean(data, axis=1)
             data = librosa.effects.time_stretch(data, rate=tempo_shift)
+
+            nyq = 0.5 * sr
+
+            # === High-end EQ: drop left, boost right ===
+            gain_db_high = (group_idx / (num_groups - 1) - 0.5) * 4.0  # -2dB to +2dB
+            gain_linear_high = 10**(gain_db_high / 20)
+            freqs_high = [0, 2000, 20000, nyq]
+            gains_high = [1.0, 1.0, gain_linear_high, gain_linear_high]
+            freq_norm_high = [f / nyq for f in freqs_high]
+            taps_high = firwin2(513, freq_norm_high, gains_high)
+            data = lfilter(taps_high, 1.0, data)
+
+            # === Low-mid EQ: boost left, cut right (gradual slope) ===
+            gain_db_mid = (1 - 2 * (group_idx / (num_groups - 1))) * 1.0  # +1dB to -1dB
+            gain_linear_mid = 10**(gain_db_mid / 20)
+            freqs_mid = [0, 100, 200, 400, 800, nyq]
+            gains_mid = [1.0, gain_linear_mid, gain_linear_mid, 1.0, 1.0, 1.0]
+            freq_norm_mid = [f / nyq for f in freqs_mid]
+            taps_mid = firwin2(513, freq_norm_mid, gains_mid)
+            data = lfilter(taps_mid, 1.0, data)
+
             buffers[measure] = data
             sample_rate = sr
 
@@ -134,7 +154,7 @@ def update_measure(val):
 # === GUI ===
 load_audio()
 root = tk.Tk()
-root.title("Measure Switcher with ±1 dB Gain & Tempo Shift")
+root.title("Measure Switcher with EQ & Tempo Shift")
 root.geometry('500x300')
 
 slider_frame = tk.Frame(root)
