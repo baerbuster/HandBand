@@ -6,6 +6,7 @@ import threading
 import time
 import librosa
 from scipy.signal import firwin2, lfilter
+from pedalboard import Pedalboard, Reverb
 
 # === Variables ===
 buffers = {}
@@ -16,14 +17,12 @@ measure_index = 0
 lock = threading.Lock()
 stream = None
 
-fade_out_duration = 2  # seconds
-durations = {'fade_out': fade_out_duration}
+fade_out_duration = 2
 fade_out_samples = int(fade_out_duration * sample_rate)
 is_stopping = False
 stop_sample_position = 0
 stop_complete = False
-
-slider_value = 0.5  # default center
+slider_value = 0.5
 
 measure1_list = [f"measure1.{i+1}" for i in range(8)]
 measure2_list = [f"measure2.{i+1}" for i in range(8)]
@@ -40,32 +39,41 @@ num_groups = len(measure_groups)
 def load_audio():
     global buffers, sample_rate
     for group_idx, (group, files) in enumerate(zip(measure_groups, file_groups)):
-        tempo_shift = 1 + (group_idx / (num_groups - 1) - 0.5) * 0.10  # ±5%
+        tempo_shift = 1 + (group_idx / (num_groups - 1) - 0.5) * 0.10
+        apply_reverb = (group_idx == 0)
         for measure, filename in zip(group, files):
             data, sr = sf.read(filename, dtype='float32')
-            if data.ndim == 2:
-                data = np.mean(data, axis=1)
-            data = librosa.effects.time_stretch(data, rate=tempo_shift)
+            if data.ndim == 1:
+                data = np.stack([data, data], axis=1)
+
+            # Tempo shift
+            data_mono = librosa.effects.time_stretch(data.mean(axis=1), rate=tempo_shift)
+            data = np.stack([data_mono, data_mono], axis=1)
 
             nyq = 0.5 * sr
 
-            # === High-end EQ: drop left, boost right ===
-            gain_db_high = (group_idx / (num_groups - 1) - 0.5) * 4.0  # -2dB to +2dB
+            # High-end EQ
+            gain_db_high = (group_idx / (num_groups - 1) - 0.5) * 4.0
             gain_linear_high = 10**(gain_db_high / 20)
             freqs_high = [0, 2000, 20000, nyq]
             gains_high = [1.0, 1.0, gain_linear_high, gain_linear_high]
             freq_norm_high = [f / nyq for f in freqs_high]
             taps_high = firwin2(513, freq_norm_high, gains_high)
-            data = lfilter(taps_high, 1.0, data)
+            data = np.stack([lfilter(taps_high, 1.0, data[:, ch]) for ch in range(2)], axis=1)
 
-            # === Low-mid EQ: boost left, cut right (gradual slope) ===
-            gain_db_mid = (1 - 2 * (group_idx / (num_groups - 1))) * 1.0  # +1dB to -1dB
+            # Low-mid EQ
+            gain_db_mid = (1 - 2 * (group_idx / (num_groups - 1))) * 1.0
             gain_linear_mid = 10**(gain_db_mid / 20)
             freqs_mid = [0, 100, 200, 400, 800, nyq]
             gains_mid = [1.0, gain_linear_mid, gain_linear_mid, 1.0, 1.0, 1.0]
             freq_norm_mid = [f / nyq for f in freqs_mid]
             taps_mid = firwin2(513, freq_norm_mid, gains_mid)
-            data = lfilter(taps_mid, 1.0, data)
+            data = np.stack([lfilter(taps_mid, 1.0, data[:, ch]) for ch in range(2)], axis=1)
+
+            # Reverb (only for group 0)
+            if apply_reverb:
+                board = Pedalboard([Reverb(room_size=1.0, damping=1.0,wet_level=0.1,dry_level=0.9,width=0.0)])
+                data = board(data, sr)
 
             buffers[measure] = data
             sample_rate = sr
@@ -77,7 +85,7 @@ def audio_callback(outdata, frames, time_info, status):
 
     with lock:
         val = slider_value
-    gain_db = (val - 0.5) * 2.0  # ±1 dB
+    gain_db = (val - 0.5) * 2.0
     amp = 10 ** (gain_db / 20.0)
 
     group_index = int(val * (num_groups - 1))
@@ -88,7 +96,7 @@ def audio_callback(outdata, frames, time_info, status):
 
     buf = buffers[current_measure]
     length = len(buf)
-    out = np.zeros(frames, dtype='float32')
+    out = np.zeros((frames, 2), dtype='float32')
 
     end_pos = sample_position + frames
     if end_pos <= length:
@@ -108,6 +116,7 @@ def audio_callback(outdata, frames, time_info, status):
         env = np.linspace(1, 0, fade_out_samples)[start:stop]
         if len(env) < frames:
             env = np.pad(env, (0, frames - len(env)), 'constant', constant_values=(0,))
+        env = env[:, None]
         out[:] = chunk * env * amp
         stop_sample_position = stop
         if stop_sample_position >= fade_out_samples:
@@ -115,7 +124,7 @@ def audio_callback(outdata, frames, time_info, status):
     else:
         out[:] = chunk * amp
 
-    outdata[:] = out.reshape(-1, 1)
+    outdata[:] = out
 
 # === Start/Stop Audio ===
 def start_audio():
@@ -129,7 +138,7 @@ def start_audio():
     stop_complete = False
     stream = sd.OutputStream(callback=audio_callback,
                              samplerate=sample_rate,
-                             channels=1,
+                             channels=2,
                              dtype='float32')
     stream.start()
 
@@ -154,7 +163,7 @@ def update_measure(val):
 # === GUI ===
 load_audio()
 root = tk.Tk()
-root.title("Measure Switcher with EQ & Tempo Shift")
+root.title("Measure Switcher with EQ, Tempo Shift & Preloaded Reverb")
 root.geometry('500x300')
 
 slider_frame = tk.Frame(root)
