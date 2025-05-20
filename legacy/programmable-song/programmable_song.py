@@ -25,15 +25,44 @@ stop_sample_position = 0
 stop_complete = False
 slider_value = 0.5
 
-measure1_list = [f"measure1.{i+1}" for i in range(8)]
-measure2_list = [f"measure2.{i+1}" for i in range(8)]
+measure1_list = [f"measure1.{i+1}" for i in range(4)]
+measure2_list = [f"measure2.{i+1}" for i in range(4)]
 measure3_list = [f"measure3.{i+1}" for i in range(4)]
-loop1file_list = [f"ProgrammableLoop1.{i+1}.wav" for i in range(8)]
-loop2file_list = [f"ProgrammableLoop2.{i+1}.wav" for i in range(8)]
-loop3file_list = [f"ProgrammableLoop3.{i+1}.wav" for i in range(4)]
+measure4_list = [f"measure4.{i+1}" for i in range(4)]
+measure5_list = [f"measure5.{i+1}" for i in range(4)]
+measure6_list = [f"measure6.{i+1}" for i in range(4)]
+measure7_list = [f"measure7.{i+1}" for i in range(4)]
+measure8_list = [f"measure8.{i+1}" for i in range(4)]
+measure9_list = [f"measure9.{i+1}" for i in range(4)]
+measure10_list = [f"measure10.{i+1}" for i in range(4)]
+measure11_list = [f"measure11.{i+1}" for i in range(4)]
+measure12_list = [f"measure12.{i+1}" for i in range(4)]
+measure13_list = [f"measure13.{i+1}" for i in range(4)]
+measure14_list = [f"measure14.{i+1}" for i in range(4)]
+measure15_list = [f"measure15.{i+1}" for i in range(4)]
+measure16_list = [f"measure16.{i+1}" for i in range(4)]
+measure17_list = [f"measure17.{i+1}" for i in range(4)]
+loop1file_list = [f"ProgrammableLoop1.0SadLevel8{c}.wav" for c in "ABCD"]
+loop2file_list = [f"ProgrammableLoop1.0SadLevel7{c}.wav" for c in "ABCD"]
+loop3file_list = [f"ProgrammableLoop1.0SadLevel6{c}.wav" for c in "ABCD"]
+loop4file_list = [f"ProgrammableLoop1.0SadLevel5{c}.wav" for c in "ABCD"]
+loop5file_list = [f"ProgrammableLoop1.0SadLevel4{c}.wav" for c in "ABCD"]
+loop6file_list = [f"ProgrammableLoop1.0SadLevel3{c}.wav" for c in "ABCD"]
+loop7file_list = [f"ProgrammableLoop1.0SadLevel2{c}.wav" for c in "ABCD"]
+loop8file_list = [f"ProgrammableLoop1.0SadLevel1{c}.wav" for c in "ABCD"]
+loop9file_list = [f"ProgrammableLoop1.0Neutral{c}.wav" for c in "ABCD"]
+loop10file_list = [f"ProgrammableLoop1.0HappyLevel1{c}.wav" for c in "ABCD"]
+loop11file_list = [f"ProgrammableLoop1.0HappyLevel2{c}.wav" for c in "ABCD"]
+loop12file_list = [f"ProgrammableLoop1.0HappyLevel3{c}.wav" for c in "ABCD"]
+loop13file_list = [f"ProgrammableLoop1.0HappyLevel4{c}.wav" for c in "ABCD"]
+loop14file_list = [f"ProgrammableLoop1.0HappyLevel5{c}.wav" for c in "ABCD"]
+loop15file_list = [f"ProgrammableLoop1.0HappyLevel6{c}.wav" for c in "ABCD"]
+loop16file_list = [f"ProgrammableLoop1.0HappyLevel7{c}.wav" for c in "ABCD"]
+loop17file_list = [f"ProgrammableLoop1.0HappyLevel8{c}.wav" for c in "ABCD"]
 
-measure_groups = [measure1_list, measure2_list, measure3_list]
-file_groups = [loop1file_list, loop2file_list, loop3file_list]
+measure_groups = [globals()[f"measure{i}_list"] for i in range(1, 17)]
+file_groups = [globals()[f"loop{i}file_list"] for i in range(1, 17)]
+
 num_groups = len(measure_groups)
 
 # === Load Audio ===
@@ -64,7 +93,7 @@ def load_audio():
             apply_reverb = False
 
         for measure, filename in zip(group, files):
-            filename = os.path.join("Programmable Loop MoonStruck Demo", filename)
+            filename = os.path.join("ProgrammableLoop 4 To The Floor", filename)
             data, sr = sf.read(filename, dtype='float32')
             if data.ndim == 1:
                 data = np.stack([data, data], axis=1)
@@ -196,7 +225,7 @@ slider_frame = tk.Frame(root)
 slider_frame.pack(pady=40)
 slider = tk.Scale(slider_frame,
                   from_=0, to=1,
-                  resolution=0.5,
+                  resolution=1/1000,
                   orient=tk.HORIZONTAL,
                   showvalue=0,
                   length=300,
@@ -207,7 +236,7 @@ slider.grid(row=1, column=0)
 label_canvas = tk.Canvas(slider_frame, width=300, height=20, highlightthickness=0)
 label_canvas.grid(row=0, column=0)
 label_canvas.create_text(0, 10, text="Sad", anchor='w')
-label_canvas.create_text(150, 10, text="|", anchor='center')
+#label_canvas.create_text(150, 10, text="|", anchor='center')
 label_canvas.create_text(300, 10, text="Happy", anchor='e')
 
 play_button = tk.Button(root, text="Play", command=start_audio)
