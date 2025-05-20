@@ -1,3 +1,4 @@
+import os
 import soundfile as sf
 import sounddevice as sd
 import numpy as np
@@ -38,10 +39,32 @@ num_groups = len(measure_groups)
 # === Load Audio ===
 def load_audio():
     global buffers, sample_rate
+    max_wet_level = 0.1  # Your established max wet level at furthest left
+
+    # Calculate total left-of-center groups count (all groups with index < center)
+    center_index = num_groups // 2
+
     for group_idx, (group, files) in enumerate(zip(measure_groups, file_groups)):
         tempo_shift = 1 + (group_idx / (num_groups - 1) - 0.5) * 0.10
-        apply_reverb = (group_idx == 0)
+
+        # Only groups left of center get reverb
+        if group_idx < center_index:
+            # Number of groups left of center (for scaling)
+            left_count = center_index
+
+            # Calculate wet level fraction for this group:
+            # At furthest left (group_idx == 0) wet = max_wet_level
+            # Each group closer to center halves wet level progressively
+            wet_level = max_wet_level * (1 - group_idx / left_count)
+            dry_level = 1.0 - wet_level
+            apply_reverb = True
+        else:
+            wet_level = 0.0
+            dry_level = 1.0
+            apply_reverb = False
+
         for measure, filename in zip(group, files):
+            filename = os.path.join("Programmable Loop MoonStruck Demo", filename)
             data, sr = sf.read(filename, dtype='float32')
             if data.ndim == 1:
                 data = np.stack([data, data], axis=1)
@@ -70,9 +93,12 @@ def load_audio():
             taps_mid = firwin2(513, freq_norm_mid, gains_mid)
             data = np.stack([lfilter(taps_mid, 1.0, data[:, ch]) for ch in range(2)], axis=1)
 
-            # Reverb (only for group 0)
+            # Reverb (only for groups left of center)
             if apply_reverb:
-                board = Pedalboard([Reverb(room_size=1.0, damping=1.0,wet_level=0.1,dry_level=0.9,width=0.0)])
+                board = Pedalboard([Reverb(room_size=1.0, damping=1.0,
+                                          wet_level=wet_level,
+                                          dry_level=dry_level,
+                                          width=0.0)])
                 data = board(data, sr)
 
             buffers[measure] = data
