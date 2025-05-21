@@ -15,6 +15,7 @@ sample_rate = 44100
 sample_position = 0
 current_measure = None
 measure_index = 0
+current_group_index = 0
 lock = threading.Lock()
 stream = None
 
@@ -25,45 +26,24 @@ stop_sample_position = 0
 stop_complete = False
 slider_value = 0.5
 
-measure1_list = [f"measure1.{i+1}" for i in range(4)]
-measure2_list = [f"measure2.{i+1}" for i in range(4)]
-measure3_list = [f"measure3.{i+1}" for i in range(4)]
-measure4_list = [f"measure4.{i+1}" for i in range(4)]
-measure5_list = [f"measure5.{i+1}" for i in range(4)]
-measure6_list = [f"measure6.{i+1}" for i in range(4)]
-measure7_list = [f"measure7.{i+1}" for i in range(4)]
-measure8_list = [f"measure8.{i+1}" for i in range(4)]
-measure9_list = [f"measure9.{i+1}" for i in range(4)]
-measure10_list = [f"measure10.{i+1}" for i in range(4)]
-measure11_list = [f"measure11.{i+1}" for i in range(4)]
-measure12_list = [f"measure12.{i+1}" for i in range(4)]
-measure13_list = [f"measure13.{i+1}" for i in range(4)]
-measure14_list = [f"measure14.{i+1}" for i in range(4)]
-measure15_list = [f"measure15.{i+1}" for i in range(4)]
-measure16_list = [f"measure16.{i+1}" for i in range(4)]
-measure17_list = [f"measure17.{i+1}" for i in range(4)]
-loop1file_list = [f"ProgrammableLoop1.0SadLevel8{c}.wav" for c in "ABCD"]
-loop2file_list = [f"ProgrammableLoop1.0SadLevel7{c}.wav" for c in "ABCD"]
-loop3file_list = [f"ProgrammableLoop1.0SadLevel6{c}.wav" for c in "ABCD"]
-loop4file_list = [f"ProgrammableLoop1.0SadLevel5{c}.wav" for c in "ABCD"]
-loop5file_list = [f"ProgrammableLoop1.0SadLevel4{c}.wav" for c in "ABCD"]
-loop6file_list = [f"ProgrammableLoop1.0SadLevel3{c}.wav" for c in "ABCD"]
-loop7file_list = [f"ProgrammableLoop1.0SadLevel2{c}.wav" for c in "ABCD"]
-loop8file_list = [f"ProgrammableLoop1.0SadLevel1{c}.wav" for c in "ABCD"]
-loop9file_list = [f"ProgrammableLoop1.0Neutral{c}.wav" for c in "ABCD"]
-loop10file_list = [f"ProgrammableLoop1.0HappyLevel1{c}.wav" for c in "ABCD"]
-loop11file_list = [f"ProgrammableLoop1.0HappyLevel2{c}.wav" for c in "ABCD"]
-loop12file_list = [f"ProgrammableLoop1.0HappyLevel3{c}.wav" for c in "ABCD"]
-loop13file_list = [f"ProgrammableLoop1.0HappyLevel4{c}.wav" for c in "ABCD"]
-loop14file_list = [f"ProgrammableLoop1.0HappyLevel5{c}.wav" for c in "ABCD"]
-loop15file_list = [f"ProgrammableLoop1.0HappyLevel6{c}.wav" for c in "ABCD"]
-loop16file_list = [f"ProgrammableLoop1.0HappyLevel7{c}.wav" for c in "ABCD"]
-loop17file_list = [f"ProgrammableLoop1.0HappyLevel8{c}.wav" for c in "ABCD"]
+for i in range(1, 18):
+    globals()[f"measure{i}_list"] = [f"measure{i}.{j+1}" for j in range(4)]
 
-measure_groups = [globals()[f"measure{i}_list"] for i in range(1, 17)]
-file_groups = [globals()[f"loop{i}file_list"] for i in range(1, 17)]
+measure_groups = [globals()[f"measure{i}_list"] for i in range(1, 18)]
+
+levels = [
+    "SadLevel8", "SadLevel7", "SadLevel6", "SadLevel5", "SadLevel4", "SadLevel3", "SadLevel2", "SadLevel1",
+    "Neutral",
+    "HappyLevel1", "HappyLevel2", "HappyLevel3", "HappyLevel4", "HappyLevel5", "HappyLevel6", "HappyLevel7", "HappyLevel8"
+]
+
+for i, level in enumerate(levels, start=1):
+    globals()[f"loop{i}file_list"] = [f"ProgrammableLoop1.0{level}{c}.wav" for c in "ABCD"]
+
+file_groups = [globals()[f"loop{i}file_list"] for i in range(1, 18)]
 
 num_groups = len(measure_groups)
+
 
 # === Load Audio ===
 def load_audio():
@@ -136,17 +116,26 @@ def load_audio():
 # === Audio Callback ===
 def audio_callback(outdata, frames, time_info, status):
     global sample_position, current_measure, measure_index
-    global is_stopping, stop_sample_position, stop_complete
+    global is_stopping, stop_sample_position, stop_complete, current_group_index
 
     with lock:
         val = slider_value
+
     gain_db = (val - 0.5) * 2.0
     amp = 10 ** (gain_db / 20.0)
 
-    group_index = int(val * (num_groups - 1))
-    current_group = measure_groups[group_index]
+    goal_group_index = int(val * (num_groups - 1))
 
-    if current_measure is None or current_measure not in buffers:
+    if current_measure is None:
+        current_group_index = 0
+        measure_index = 0
+    # current_group_index and measure_index are assumed up to date
+
+    current_group = measure_groups[current_group_index]
+    current_measure = current_group[measure_index]
+
+    if current_measure not in buffers:
+        outdata.fill(0)
         return
 
     buf = buffers[current_measure]
@@ -159,10 +148,21 @@ def audio_callback(outdata, frames, time_info, status):
     else:
         first = buf[sample_position:]
         remaining = end_pos - length
+
         measure_index = (measure_index + 1) % len(current_group)
+
+        if measure_index == 0:
+            if current_group_index < goal_group_index:
+                current_group_index += 1
+            elif current_group_index > goal_group_index:
+                current_group_index -= 1
+
+        current_group = measure_groups[current_group_index]
         current_measure = current_group[measure_index]
+
         buf2 = buffers[current_measure]
         chunk = np.concatenate((first, buf2[:remaining]))
+
     sample_position = end_pos % length
 
     if is_stopping:
@@ -181,21 +181,27 @@ def audio_callback(outdata, frames, time_info, status):
 
     outdata[:] = out
 
-# === Start/Stop Audio ===
+
 def start_audio():
-    global stream, sample_position, measure_index, stop_complete, current_measure
+    global stream, sample_position, measure_index, stop_complete
+    global current_measure, current_group_index
+
     with lock:
         val = slider_value
-    group_index = int(val * (num_groups - 1))
-    current_measure = measure_groups[group_index][0]
-    sample_position = 0
+    goal_group_index = int(val * (num_groups - 1))
+
+    current_group_index = goal_group_index
     measure_index = 0
+    current_measure = measure_groups[current_group_index][measure_index]
+    sample_position = 0
     stop_complete = False
+
     stream = sd.OutputStream(callback=audio_callback,
                              samplerate=sample_rate,
                              channels=2,
                              dtype='float32')
     stream.start()
+
 
 def stop_audio():
     global stream, is_stopping, stop_sample_position, stop_complete
