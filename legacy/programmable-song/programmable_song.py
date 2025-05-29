@@ -54,7 +54,10 @@ def load_audio():
     center_index = num_groups // 2
 
     for group_idx, (group, files) in enumerate(zip(measure_groups, file_groups)):
-        tempo_shift = 1 + (group_idx / (num_groups - 1) - 0.5) * 0.10
+        min_rate = 0.6667
+        max_rate = 1.5
+        log_base = max_rate / min_rate
+        tempo_shift = min_rate * (log_base ** (group_idx / (num_groups - 1)))
 
         # Only groups left of center get reverb
         if group_idx < center_index:
@@ -121,7 +124,9 @@ def audio_callback(outdata, frames, time_info, status):
     with lock:
         val = slider_value
 
-    gain_db = (val - 0.5) * 2.0
+    min_db = -5.0
+    max_db = 0.0
+    gain_db = min_db + (max_db - min_db) * val
     amp = 10 ** (gain_db / 20.0)
 
     goal_group_index = int(val * (num_groups - 1))
@@ -151,11 +156,27 @@ def audio_callback(outdata, frames, time_info, status):
 
         measure_index = (measure_index + 1) % len(current_group)
 
-        if measure_index == 0:
-            if current_group_index < goal_group_index:
-                current_group_index += 1
-            elif current_group_index > goal_group_index:
-                current_group_index -= 1
+        group_distance = abs(goal_group_index - current_group_index)
+
+        if group_distance < 4:
+            step = 1
+        elif group_distance <= 8:
+            step = 2
+        elif group_distance <= 12:
+            step = 3
+        else:
+            step = 4
+
+        if current_group_index < goal_group_index:
+            current_group_index += step
+        elif current_group_index > goal_group_index:
+            current_group_index -= step
+
+        # Clamp to valid range
+        current_group_index = max(0, min(current_group_index, num_groups - 1))
+
+
+
 
         current_group = measure_groups[current_group_index]
         current_measure = current_group[measure_index]
@@ -224,7 +245,7 @@ def update_measure(val):
 # === GUI ===
 load_audio()
 root = tk.Tk()
-root.title("Measure Switcher with EQ, Tempo Shift & Preloaded Reverb")
+root.title("HandBand")
 root.geometry('500x300')
 
 slider_frame = tk.Frame(root)
