@@ -38,7 +38,7 @@ levels = [
 ]
 
 for i, level in enumerate(levels, start=1):
-    globals()[f"loop{i}file_list"] = [f"ProgrammableLoop1.0{level}{c}.wav" for c in "ABCD"]
+    globals()[f"loop{i}file_list"] = [f"ProgrammableLoop1.2{level}{c}.wav" for c in "ABCD"]
 
 file_groups = [globals()[f"loop{i}file_list"] for i in range(1, 18)]
 
@@ -76,7 +76,7 @@ def load_audio():
             apply_reverb = False
 
         for measure, filename in zip(group, files):
-            filename = os.path.join("ProgrammableLoop 4 To The Floor", filename)
+            filename = os.path.join("ProgrammableLoop 4 To The Floor 2", filename)
             data, sr = sf.read(filename, dtype='float32')
             if data.ndim == 1:
                 data = np.stack([data, data], axis=1)
