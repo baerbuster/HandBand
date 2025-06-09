@@ -1,274 +1,398 @@
 import os
-import soundfile as sf
-import sounddevice as sd
-import numpy as np
-import tkinter as tk
-import threading
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+
+import pygame
 import time
-import librosa
-from scipy.signal import firwin2, lfilter
+import threading
+import tkinter as tk
+import math
 from pedalboard import Pedalboard, Reverb
+import numpy as np
+import pygame.sndarray 
 
-# === Variables ===
-buffers = {}
-sample_rate = 44100
-sample_position = 0
-current_measure = None
-measure_index = 0
-current_group_index = 0
-lock = threading.Lock()
-stream = None
+# === Globals ===
+bpm_lock = threading.Lock()
+slider_val_lock = threading.Lock()
 
-fade_out_duration = 2
-fade_out_samples = int(fade_out_duration * sample_rate)
-is_stopping = False
-stop_sample_position = 0
-stop_complete = False
-slider_value = 0.5
+min_bpm = 80
+max_bpm = 180
+default_bpm = 120
 
-for i in range(1, 18):
-    globals()[f"measure{i}_list"] = [f"measure{i}.{j+1}" for j in range(4)]
+current_bpm = default_bpm
+slider_val = 0.5
 
-measure_groups = [globals()[f"measure{i}_list"] for i in range(1, 18)]
+steps_per_measure = 16
+current_group_index = 8
 
-levels = [
-    "SadLevel8", "SadLevel7", "SadLevel6", "SadLevel5", "SadLevel4", "SadLevel3", "SadLevel2", "SadLevel1",
-    "Neutral",
-    "HappyLevel1", "HappyLevel2", "HappyLevel3", "HappyLevel4", "HappyLevel5", "HappyLevel6", "HappyLevel7", "HappyLevel8"
+start_bpm = default_bpm
+target_bpm = default_bpm
+ramp_start_time = None
+ramp_duration = None
+
+# Kick trigger patterns for each slider level (label)
+kick_patterns = [
+    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],  # SadLevel8
+    [1,0,1,0, 0,0,0,0, 1,0,0,0, 1,0,0,0],  # SadLevel7
+    [1,0,0,0, 1,0,0,0, 1,0,0,1, 0,0,0,0],  # SadLevel6
+    [1,0,0,0, 1,0,0,0, 1,0,1,0, 0,0,0,0],  # SadLevel5
+    [1,0,1,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],  # SadLevel4
+    [1,0,0,1, 0,0,0,0, 1,0,1,0, 0,0,0,0],  # SadLevel3
+    [1,0,1,0, 0,0,0,0, 1,0,0,1, 0,0,0,0],  # SadLevel2
+    [1,0,0,0, 0,0,0,0, 1,0,1,0, 0,0,0,0],  # SadLevel1
+    [1,0,0,0, 0,0,0,0, 1,0,1,0, 0,0,0,0],  # Neutral
+    [1,0,0,0, 0,0,0,0, 1,0,1,0, 0,0,0,0],  # HappyLevel1
+    [1,0,0,0, 0,0,0,0, 1,0,1,0, 1,0,0,0],  # HappyLevel2
+    [1,0,0,0, 1,0,0,0, 1,0,1,0, 1,0,0,0],  # HappyLevel3
+    [1,0,0,0, 1,0,0,0, 1,0,0,1, 1,0,0,0],  # HappyLevel4
+    [1,0,1,0, 1,0,0,0, 1,0,0,1, 1,0,0,0],  # HappyLevel5
+    [1,0,1,0, 1,0,1,0, 1,0,0,1, 1,0,0,0],  # HappyLevel6
+    [1,0,1,0, 1,0,1,0, 1,0,0,1, 1,0,1,0],  # HappyLevel7
+    [1,0,1,1, 1,0,1,0, 1,0,0,1, 1,0,1,0],  # HappyLevel8
 ]
 
-for i, level in enumerate(levels, start=1):
-    globals()[f"loop{i}file_list"] = [f"ProgrammableLoop1.3{level}{c}.wav" for c in "ABCD"]
+snare_patterns = [
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ], #SadLevel8
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ], #Neutral
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,1,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,1,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,1,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,1,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1, ], #HappyLevel8
+]
 
-file_groups = [globals()[f"loop{i}file_list"] for i in range(1, 18)]
+cymbal_patterns = [
+    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, ], #SadLevel8
+    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, ],
+    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, ],
+    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, ],
+    [1,0,1,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, ],
+    [1,0,1,0, 1,0,1,0, 1,0,0,0, 1,0,0,0, ],
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,0,0, ],
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ],
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ], #Neutral
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ],
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ],
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ],
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ],
+    [1,0,1,0, 0,0,1,0, 1,0,1,0, 1,0,1,0, ],
+    [1,0,1,0, 0,0,1,0, 0,0,1,0, 1,0,1,0, ],
+    [1,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, ],
+    [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, ], #HappyLevel8
+]
 
-num_groups = len(measure_groups)
+# Delay patterns
+# Delay patterns
+delay_patterns_ms = []
+base_sad = [100, 79, 63, 50, 40, 32, 25, 0]  # 8 sad levels
+
+# 1) Sad delays (levels 8→1)
+for d in base_sad:
+    delay_patterns_ms.append([0]*4 + [d]*12)
+
+# 2) Neutral (level 0)
+delay_patterns_ms.append([0]*16)
+
+# 3) Happy delays (levels 1→8)
+happy = [int(0.25 * d) for d in reversed(base_sad)]
+for d in happy:
+    pattern = [0]*16
+    for i in [1,3,5,7,9,11,13,15]:
+        pattern[i] = d
+    delay_patterns_ms.append(pattern)
 
 
-# === Load Audio ===
-def load_audio():
-    global buffers, sample_rate
-    max_wet_level = 0.1  # Your established max wet level at furthest left
+# Global accent matrix (gain in dB)
+global_accents = [
+    [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  # SadLevel8
+    [0.03, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],
+    [0.09, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],
+    [0.19, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],
+    [0.34, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],
+    [0.56, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],
+    [0.90, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],
+    [1.39, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],
+    [2.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  # Neutral first beat = 2.0
+    [1.39, 0.00, 0.00, 0.00, 0.50, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.50, 0.00, 0.00, 0.00],
+    [0.90, 0.00, 0.00, 0.00, 0.75, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.75, 0.00, 0.00, 0.00],
+    [0.56, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00],
+    [0.34, 0.00, 0.00, 0.00, 1.25, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.25, 0.00, 0.00, 0.00],
+    [0.19, 0.00, 0.00, 0.00, 1.50, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.50, 0.00, 0.00, 0.00],
+    [0.09, 0.00, 0.00, 0.00, 1.75, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.75, 0.00, 0.00, 0.00],
+    [0.03, 0.00, 0.00, 0.00, 1.90, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.90, 0.00, 0.00, 0.00],
+    [0.00, 0.00, 0.00, 0.00, 2.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 2.00, 0.00, 0.00, 0.00],  # HappyLevel8 first beat = 0.0
+]
 
-    # Calculate total left-of-center groups count (all groups with index < center)
-    center_index = num_groups // 2
+pygame.mixer.init()
 
-    for group_idx, (group, files) in enumerate(zip(measure_groups, file_groups)):
-        min_rate = 0.6667
-        max_rate = 1.5
-        log_base = max_rate / min_rate
-        tempo_shift = min_rate * (log_base ** (group_idx / (num_groups - 1)))
+def slider_to_bpm(val):
+    log_min = math.log(min_bpm)
+    log_max = math.log(max_bpm)
+    bpm_log = log_min + val * (log_max - log_min)
+    return math.exp(bpm_log)
 
-        # Only groups left of center get reverb
-        if group_idx < center_index:
-            # Number of groups left of center (for scaling)
-            left_count = center_index
+def bpm_to_slider(bpm_val):
+    log_min = math.log(min_bpm)
+    log_max = math.log(max_bpm)
+    return (math.log(bpm_val) - log_min) / (log_max - log_min)
 
-            # Calculate wet level fraction for this group:
-            # At furthest left (group_idx == 0) wet = max_wet_level
-            # Each group closer to center halves wet level progressively
-            wet_level = max_wet_level * (1 - group_idx / left_count)
-            dry_level = 1.0 - wet_level
-            apply_reverb = True
-        else:
-            wet_level = 0.0
-            dry_level = 1.0
-            apply_reverb = False
-
-        for measure, filename in zip(group, files):
-            filename = os.path.join("ProgrammableLoop Drums", filename)
-            data, sr = sf.read(filename, dtype='float32')
-            if data.ndim == 1:
-                data = np.stack([data, data], axis=1)
-
-            # Tempo shift
-            data_mono = librosa.effects.time_stretch(data.mean(axis=1), rate=tempo_shift)
-            data = np.stack([data_mono, data_mono], axis=1)
-
-            nyq = 0.5 * sr
-
-            # High-end EQ
-            gain_db_high = (group_idx / (num_groups - 1) - 0.5) * 4.0
-            gain_linear_high = 10**(gain_db_high / 20)
-            freqs_high = [0, 2000, 20000, nyq]
-            gains_high = [1.0, 1.0, gain_linear_high, gain_linear_high]
-            freq_norm_high = [f / nyq for f in freqs_high]
-            taps_high = firwin2(513, freq_norm_high, gains_high)
-            data = np.stack([lfilter(taps_high, 1.0, data[:, ch]) for ch in range(2)], axis=1)
-
-            # Low-mid EQ
-            gain_db_mid = (1 - 2 * (group_idx / (num_groups - 1))) * 1.0
-            gain_linear_mid = 10**(gain_db_mid / 20)
-            freqs_mid = [0, 100, 200, 400, 800, nyq]
-            gains_mid = [1.0, gain_linear_mid, gain_linear_mid, 1.0, 1.0, 1.0]
-            freq_norm_mid = [f / nyq for f in freqs_mid]
-            taps_mid = firwin2(513, freq_norm_mid, gains_mid)
-            data = np.stack([lfilter(taps_mid, 1.0, data[:, ch]) for ch in range(2)], axis=1)
-
-            # Reverb (only for groups left of center)
-            if apply_reverb:
-                board = Pedalboard([Reverb(room_size=1.0, damping=1.0,
-                                          wet_level=wet_level,
-                                          dry_level=dry_level,
-                                          width=0.0)])
-                data = board(data, sr)
-
-            buffers[measure] = data
-            sample_rate = sr
-
-# === Audio Callback ===
-def audio_callback(outdata, frames, time_info, status):
-    global sample_position, current_measure, measure_index
-    global is_stopping, stop_sample_position, stop_complete, current_group_index
-
-    with lock:
-        val = slider_value
-
-    min_db = -5.0
-    max_db = 0.0
-    gain_db = min_db + (max_db - min_db) * val
-    amp = 10 ** (gain_db / 20.0)
-
-    goal_group_index = int(val * (num_groups - 1))
-
-    if current_measure is None:
-        current_group_index = 0
-        measure_index = 0
-    # current_group_index and measure_index are assumed up to date
-
-    current_group = measure_groups[current_group_index]
-    current_measure = current_group[measure_index]
-
-    if current_measure not in buffers:
-        outdata.fill(0)
-        return
-
-    buf = buffers[current_measure]
-    length = len(buf)
-    out = np.zeros((frames, 2), dtype='float32')
-
-    end_pos = sample_position + frames
-    if end_pos <= length:
-        chunk = buf[sample_position:end_pos]
+def slider_to_global_gain_db(slider):
+    # Move from -5 dB at slider=0 to 0 dB at slider=0.5 and up to +5 dB at slider=1
+    if slider <= 0.5:
+        t = slider / 0.5
+        gain_db = -5 + 5 * (math.log10(1 + 9 * t))
     else:
-        first = buf[sample_position:]
-        remaining = end_pos - length
+        t = (slider - 0.5) / 0.5
+        gain_db = 0 + 5 * (math.log10(1 + 9 * t))
+    return gain_db
 
-        measure_index = (measure_index + 1) % len(current_group)
-
-        group_distance = abs(goal_group_index - current_group_index)
-
-        if group_distance < 4:
-            step = 1
-        elif group_distance <= 8:
-            step = 2
-        elif group_distance <= 12:
-            step = 3
-        else:
-            step = 4
-
-        if current_group_index < goal_group_index:
-            current_group_index += step
-        elif current_group_index > goal_group_index:
-            current_group_index -= step
-
-        # Clamp to valid range
-        current_group_index = max(0, min(current_group_index, num_groups - 1))
-
-
-
-
-        current_group = measure_groups[current_group_index]
-        current_measure = current_group[measure_index]
-
-        buf2 = buffers[current_measure]
-        chunk = np.concatenate((first, buf2[:remaining]))
-
-    sample_position = end_pos % length
-
-    if is_stopping:
-        start = stop_sample_position
-        stop = min(stop_sample_position + frames, fade_out_samples)
-        env = np.linspace(1, 0, fade_out_samples)[start:stop]
-        if len(env) < frames:
-            env = np.pad(env, (0, frames - len(env)), 'constant', constant_values=(0,))
-        env = env[:, None]
-        out[:] = chunk * env * amp
-        stop_sample_position = stop
-        if stop_sample_position >= fade_out_samples:
-            stop_complete = True
+def slider_to_global_highshelf_db(slider):
+    # -2 dB at 0, 0 dB at 0.5, +2 dB at 1, logarithmic interpolation in between
+    if slider <= 0.5:
+        t = slider / 0.5
+        # interpolate logarithmically from -2 to 0 dB
+        gain_db = -2 + 2 * (math.log10(1 + 9 * t))
     else:
-        out[:] = chunk * amp
+        t = (slider - 0.5) / 0.5
+        # interpolate logarithmically from 0 to +2 dB
+        gain_db = 0 + 2 * (math.log10(1 + 9 * t))
+    return gain_db
 
-    outdata[:] = out
+def slider_to_lowmid_db(slider):
+    # -1 dB at 0, 0 dB at 0.5, +1 dB at 1 over 100–200 Hz, logarithmic in between
+    if slider <= 0.5:
+        t = slider / 0.5
+        gain_db = 1 - (1 * math.log10(1 + 9 * t))
+    else:
+        t = (slider - 0.5) / 0.5
+        gain_db = 0 - (1 * math.log10(1 + 9 * t))
+    return gain_db
+
+labels = [
+    "SadLevel8", "SadLevel7", "SadLevel6", "SadLevel5",
+    "SadLevel4", "SadLevel3", "SadLevel2", "SadLevel1",
+    "Neutral",
+    "HappyLevel1", "HappyLevel2", "HappyLevel3",
+    "HappyLevel4", "HappyLevel5", "HappyLevel6",
+    "HappyLevel7", "HappyLevel8"
+]
+
+sample_cache = {}
+def load_samples():
+    prefix = "ProgrammableLoop2/ProgrammableLoop2"
+    fix = prefix + "Kick"
+    suffix = ".wav"
+    for label in labels:
+        path = fix + label + suffix
+        try:
+            sample_cache[label] = pygame.mixer.Sound(path)
+        except Exception as e:
+            print(f"Error loading {path}: {e}")
+
+load_samples()
+
+# === Load Snare Samples ===
+snare_cache = {}
+
+def load_snare_samples():
+    prefix = "ProgrammableLoop2/ProgrammableLoop2Snare"
+    suffix = ".wav"
+    for label in labels:
+        path = prefix + label + suffix
+        try:
+            snare_cache[label] = pygame.mixer.Sound(path)
+        except Exception as e:
+            print(f"Error loading {path}: {e}")
+
+load_snare_samples()
+
+# === Load Cymbal Samples ===
+cymbal_cache = {}
+
+def load_cymbal_samples():
+    prefix = "ProgrammableLoop2/ProgrammableLoop2Cymbal"
+    suffix = ".wav"
+    for label in labels:
+        path = prefix + label + suffix
+        try:
+            cymbal_cache[label] = pygame.mixer.Sound(path)
+        except Exception as e:
+            print(f"Error loading {path}: {e}")
+
+load_cymbal_samples()
 
 
-def start_audio():
-    global stream, sample_position, measure_index, stop_complete
-    global current_measure, current_group_index
+def play_sample_with_delay_and_gain(label, delay_ms, gain_db):
+    def delayed_play():
+        time.sleep(delay_ms / 1000)
+        sound = sample_cache.get(label)
+        if sound:
+            with slider_val_lock:
+                slider = slider_val
+            global_gain_db = slider_to_global_gain_db(slider)
+            global_highshelf_db = slider_to_global_highshelf_db(slider)
+            # Combine gains (total_gain_db applies to volume; highshelf is conceptual here)
+            total_gain_db = gain_db + global_gain_db + global_highshelf_db
+            lowmid_db = slider_to_lowmid_db(slider)
+            # Combine gains (total_gain_db applies to volume; highshelf is conceptual here)
+            total_gain_db = gain_db + global_gain_db + global_highshelf_db + lowmid_db
+            volume = 10 ** (total_gain_db / 20)
+            sound.set_volume(min(1.0, max(0.0, volume)))
+            sound.play()
+    threading.Thread(target=delayed_play).start()
 
-    with lock:
-        val = slider_value
-    goal_group_index = int(val * (num_groups - 1))
+def play_snare_with_delay_and_gain(label, delay_ms, gain_db):
+    def delayed_play():
+        time.sleep(delay_ms/1000)
+        sound = snare_cache.get(label)
+        if sound:
+            with slider_val_lock:
+                slider = slider_val
+            total_gain_db = gain_db + slider_to_global_gain_db(slider) + slider_to_global_highshelf_db(slider) + slider_to_lowmid_db(slider)
+            volume = 10 ** (total_gain_db/20)
+            sound.set_volume(min(1.0, max(0.0, volume)))
+            sound.play()
+    threading.Thread(target=delayed_play).start()
 
-    current_group_index = goal_group_index
-    measure_index = 0
-    current_measure = measure_groups[current_group_index][measure_index]
-    sample_position = 0
-    stop_complete = False
+def play_cymbal_with_delay_and_gain(label, delay_ms, gain_db):
+    def delayed_play():
+        time.sleep(delay_ms/1000)
+        sound = cymbal_cache.get(label)
+        if sound:
+            with slider_val_lock:
+                slider = slider_val
+            total_gain_db = gain_db \
+                + slider_to_global_gain_db(slider) \
+                + slider_to_global_highshelf_db(slider) \
+                + slider_to_lowmid_db(slider)
+            volume = 10 ** (total_gain_db/20)
+            sound.set_volume(min(1.0, max(0.0, volume)))
+            sound.play()
+    threading.Thread(target=delayed_play).start()
 
-    stream = sd.OutputStream(callback=audio_callback,
-                             samplerate=sample_rate,
-                             channels=2,
-                             dtype='float32')
-    stream.start()
 
+def sequencer(stop_event):
+    global current_group_index, current_bpm, start_bpm, target_bpm, ramp_start_time, ramp_duration
 
-def stop_audio():
-    global stream, is_stopping, stop_sample_position, stop_complete
-    if stream:
-        is_stopping = True
-        stop_sample_position = 0
-        stop_complete = False
-        while not stop_complete:
-            time.sleep(0.01)
-        stream.stop()
-        stream.close()
-        is_stopping = False
+    next_trigger = time.time()
+    step = 0
 
-# === Slider Callback ===
-def update_measure(val):
-    global slider_value
-    with lock:
-        slider_value = float(val)
+    morph_active = False
+    morph_start_index = current_group_index
+    morph_end_index = current_group_index
+    morph_step_count = steps_per_measure
+    morph_current_step = 0
 
-# === GUI ===
-load_audio()
+    while not stop_event.is_set():
+        with slider_val_lock:
+            slider = slider_val
+
+        goal_group_index = int(round(slider * (len(labels) - 1)))
+
+        if goal_group_index != morph_end_index and not morph_active:
+            morph_active = True
+            morph_start_index = current_group_index
+            morph_end_index = goal_group_index
+            morph_current_step = 0
+
+        with bpm_lock:
+            new_target_bpm = slider_to_bpm(slider)
+            if new_target_bpm != target_bpm:
+                start_bpm = current_bpm
+                target_bpm = new_target_bpm
+                ramp_start_time = time.time()
+                ramp_duration = (60 / start_bpm) * 4
+
+            if ramp_start_time and ramp_duration:
+                elapsed = time.time() - ramp_start_time
+                progress = min(elapsed / ramp_duration, 1.0)
+                current_bpm = start_bpm + (target_bpm - start_bpm) * progress
+                if progress >= 1.0:
+                    current_bpm = target_bpm
+                    start_bpm = target_bpm
+                    ramp_start_time = None
+                    ramp_duration = None
+
+            bpm_to_use = current_bpm
+
+        seconds_per_beat = 60 / bpm_to_use
+        seconds_per_16th = seconds_per_beat / 4
+
+        now = time.time()
+        if now >= next_trigger:
+            if morph_active:
+                group_distance = abs(morph_end_index - morph_start_index)
+                step_size = 1 if group_distance < 4 else 2 if group_distance <= 8 else 3 if group_distance <= 12 else 4
+                if morph_start_index < morph_end_index:
+                    new_index = morph_start_index + step_size * morph_current_step
+                    new_index = min(new_index, morph_end_index)
+                else:
+                    new_index = morph_start_index - step_size * morph_current_step
+                    new_index = max(new_index, morph_end_index)
+                current_group_index = int(new_index)
+                morph_current_step += 1
+                if morph_current_step > morph_step_count or current_group_index == morph_end_index:
+                    morph_active = False
+                    current_group_index = morph_end_index
+
+            if kick_patterns[current_group_index][step]:
+                delay_ms = delay_patterns_ms[current_group_index][step]
+                gain_db = global_accents[current_group_index][step]
+                play_sample_with_delay_and_gain(labels[current_group_index], delay_ms, gain_db)
+
+            if snare_patterns[current_group_index][step]:
+                delay_ms = delay_patterns_ms[current_group_index][step]
+                gain_db = global_accents[current_group_index][step]
+                play_snare_with_delay_and_gain(labels[current_group_index], delay_ms, gain_db)
+
+            if cymbal_patterns[current_group_index][step]:
+                delay_ms = delay_patterns_ms[current_group_index][step]
+                gain_db   = global_accents[current_group_index][step]
+                play_cymbal_with_delay_and_gain(labels[current_group_index],
+                                                delay_ms, gain_db)
+
+            
+            step = (step + 1) % steps_per_measure
+            next_trigger += seconds_per_16th
+        else:
+            time.sleep(min(0.001, next_trigger - now))
+
+def on_slider_change(val):
+    global slider_val
+    with slider_val_lock:
+        slider_val = float(val)
+
 root = tk.Tk()
-root.title("HandBand")
-root.geometry('500x300')
+root.title("Sequencer BPM Control")
+root.geometry('400x150')
 
-slider_frame = tk.Frame(root)
-slider_frame.pack(pady=40)
-slider = tk.Scale(slider_frame,
-                  from_=0, to=1,
-                  resolution=1/1000,
-                  orient=tk.HORIZONTAL,
-                  showvalue=0,
-                  length=300,
-                  command=update_measure)
-slider.set(slider_value)
-slider.grid(row=1, column=0)
+label = tk.Label(root, text="BPM (log scale)")
+label.pack(pady=10)
 
-label_canvas = tk.Canvas(slider_frame, width=300, height=20, highlightthickness=0)
-label_canvas.grid(row=0, column=0)
-label_canvas.create_text(0, 10, text="Sad", anchor='w')
-#label_canvas.create_text(150, 10, text="|", anchor='center')
-label_canvas.create_text(300, 10, text="Happy", anchor='e')
+slider = tk.Scale(root, from_=0, to=1, resolution=0.001,
+                  orient=tk.HORIZONTAL, length=300,
+                  command=on_slider_change)
+slider.set(bpm_to_slider(default_bpm))
+slider.pack()
 
-play_button = tk.Button(root, text="Play", command=start_audio)
-play_button.pack(padx=20, pady=10)
-stop_button = tk.Button(root, text="Stop", command=stop_audio)
-stop_button.pack(padx=20, pady=10)
+stop_event = threading.Event()
+sequencer_thread = threading.Thread(target=sequencer, args=(stop_event,))
+sequencer_thread.start()
 
+def on_close():
+    stop_event.set()
+    sequencer_thread.join()
+    pygame.mixer.quit()
+    root.destroy()
+
+root.protocol("WM_DELETE_WINDOW", on_close)
 root.mainloop()
