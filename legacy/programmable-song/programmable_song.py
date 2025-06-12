@@ -19,7 +19,7 @@ slider_val_lock = threading.Lock()
 min_bpm = 80
 max_bpm = 180
 default_bpm = 120
-base_gain_db = 0
+base_gain_db = 10
 rest_duration = 0
 
 current_bpm = default_bpm
@@ -197,6 +197,31 @@ labels = [
     "HappyLevel7", "HappyLevel8"
 ]
 
+import numpy as np
+import pygame
+
+def fade_in_sound(sound, sample_rate, fade_ms=10):
+    fade_samples = int(sample_rate * fade_ms / 1000)
+    
+    raw = pygame.sndarray.array(sound).astype(np.float32)
+    
+    # If stereo, shape is (samples, channels)
+    if raw.ndim == 2:
+        fade_envelope = np.linspace(0, 1, fade_samples)[:, None]
+    else:
+        fade_envelope = np.linspace(0, 1, fade_samples)
+    
+    raw[:fade_samples] *= fade_envelope
+    
+    # Clip to valid range
+    np.clip(raw, -32768, 32767, out=raw)
+    
+    # Convert back to int16 (assuming 16-bit)
+    processed = raw.astype(np.int16)
+    
+    return pygame.sndarray.make_sound(processed)
+
+
 sample_cache = {}
 def load_samples():
     prefix = "ProgrammableLoop2/ProgrammableLoop2"
@@ -205,7 +230,9 @@ def load_samples():
     for label in labels:
         path = fix + label + suffix
         try:
-            sample_cache[label] = pygame.mixer.Sound(path)
+            sound = pygame.mixer.Sound(path)
+            sound = fade_in_sound(sound, sample_rate, fade_ms=10)
+            sample_cache[label] = sound
         except Exception as e:
             print(f"Error loading {path}: {e}")
 
@@ -374,7 +401,8 @@ def sequencer(stop_event):
             if step % 4 == 0:
                 midi_note = 45
                 duration = seconds_per_16th * 0.9375 * 4
-                synth.add_note_to_queue(time.time(), midi_note, duration)
+                synth.schedule_note(time.time() + 0.05, midi_note, duration)
+
             
             step = (step + 1) % steps_per_measure
             next_trigger += seconds_per_16th
@@ -391,115 +419,176 @@ import time
 import numpy as np
 import pyaudio
 
+def lowpass_filter_resonant(wave, cutoff_freqs, resonance, sample_rate):
+    out = np.zeros_like(wave)
+    f = 2 * np.sin(np.pi * cutoff_freqs / sample_rate)
+    q = resonance
+    low = 0.0
+    band = 0.0
+    for i in range(len(wave)):
+        notch = wave[i] - q * band
+        low += f[i] * band
+        high = notch - low
+        band += f[i] * high
+        out[i] = low
+    return out
+
+
+def comb_filter_modulated(wave, sample_rate, base_delay=1/47.1, feedback=0.968, drive=0.1538, env_percent=1.0):
+    # base_delay is inverse of cutoff freq (47.1 Hz)
+    samples = len(wave)
+    out = np.copy(wave) * (1 + drive)  # apply drive boost
+    delay_samples = int(sample_rate * base_delay)
+    for i in range(delay_samples, samples):
+        out[i] += feedback * out[i - delay_samples]
+    return out
+
+
 class Synth:
-    def __init__(self, sample_rate):
+    def __init__(self, sample_rate, buffer_size=1024):
         self.sample_rate = sample_rate
+        self.buffer_size = buffer_size
         self.p = pyaudio.PyAudio()
         self.stream = self.p.open(format=pyaudio.paFloat32,
                                   channels=1,
                                   rate=sample_rate,
-                                  output=True)
+                                  output=True,
+                                  frames_per_buffer=buffer_size)
         self.lock = threading.Lock()
-        self.note_queue = []  # list of (start_time, midi_note, duration)
+        self.active_notes = []  # list of (wave, current_index)
+        self.note_queue = []    # list of (start_time, midi_note, duration)
         self.thread = threading.Thread(target=self.run, daemon=True)
         self.thread.start()
 
-    def sine_wave(self, freq, duration):
-        t = np.linspace(0, duration, int(self.sample_rate * duration), False)
-        return np.sin(2 * np.pi * freq * t).astype(np.float32)
+    def fm_wave(self, carrier_freq, mod_freq, mod_index, duration):
+        samples = int(self.sample_rate * duration)
+        t = np.linspace(0, duration, samples, endpoint=False)
+        modulator = np.sin(2 * np.pi * mod_freq * t)
+        wave = np.sin(2 * np.pi * carrier_freq * t + mod_index * modulator).astype(np.float32)
+        return wave
 
     def adsr_envelope(self, length, attack=0.155, decay=0.385, sustain_level=0.17, release=1.13):
+        attack_samples = max(1, int(self.sample_rate * attack))
+        decay_samples = max(1, int(self.sample_rate * decay))
+        release_samples = max(1, int(self.sample_rate * release))
+        sustain_samples = max(0, length - attack_samples - decay_samples - release_samples)
+
+        total_samples = attack_samples + decay_samples + sustain_samples + release_samples
+        diff = length - total_samples
+        if diff > 0:
+            sustain_samples += diff
+        elif diff < 0:
+            sustain_samples = max(0, sustain_samples + diff)
+
+        attack_env = np.linspace(0, 1, attack_samples, endpoint=False)
+        decay_env = np.linspace(1, sustain_level, decay_samples, endpoint=False)
+        sustain_env = np.full(sustain_samples, sustain_level)
+        release_env = np.linspace(sustain_level, 0, release_samples, endpoint=True)
+
+        envelope = np.concatenate([attack_env, decay_env, sustain_env, release_env])
+
+        if len(envelope) < length:
+            envelope = np.append(envelope, 0)
+        elif len(envelope) > length:
+            envelope = envelope[:length]
+
+        assert len(envelope) == length, f"Envelope length {len(envelope)} != expected {length}"
+        return envelope
+
+    def filter_envelope(self, length, peak_freq=22.53, sustain_freq=20, attack=0.02, decay=0.3, release=0.5):
         attack_samples = int(self.sample_rate * attack)
         decay_samples = int(self.sample_rate * decay)
         release_samples = int(self.sample_rate * release)
+        sustain_samples = max(0, length - attack_samples - decay_samples - release_samples)
 
-        sustain_samples = length - attack_samples - decay_samples - release_samples
-        if sustain_samples < 0:
-            sustain_samples = 0
+        mod_range = 0.1265 * sustain_freq  # 12.65% of 20 Hz = ~2.53 Hz
+        peak_freq = sustain_freq + mod_range  # 20 + 2.53 = 22.53 Hz
+        attack_env = np.linspace(sustain_freq, peak_freq, attack_samples, endpoint=False)
 
-        # Sum up total samples to check if it matches length
-        total_samples = attack_samples + decay_samples + sustain_samples + release_samples
+        decay_env = np.linspace(peak_freq, sustain_freq, decay_samples, endpoint=False)
+        sustain_env = np.full(sustain_samples, sustain_freq)
+        release_env = np.linspace(sustain_freq, 50, release_samples, endpoint=True)  # fades out
 
-        # Fix total_samples to exactly match length by adjusting sustain_samples
-        diff = length - total_samples
+        env = np.concatenate([attack_env, decay_env, sustain_env, release_env])
+        if len(env) < length:
+            env = np.pad(env, (0, length - len(env)), 'edge')
+        return env
 
-        sustain_samples += diff
-        if sustain_samples < 0:
-            # If sustain is negative, reduce decay_samples instead (or release if needed)
-            decay_samples += sustain_samples  # sustain_samples is negative here
-            sustain_samples = 0
-            if decay_samples < 0:
-                release_samples += decay_samples  # decay_samples negative
-                decay_samples = 0
-                if release_samples < 0:
-                    release_samples = 0
+    def schedule_note(self, start_time, midi_note, duration):
+        with self.lock:
+            self.note_queue.append((start_time, midi_note, duration))
 
-
-        envelope = np.concatenate([
-            np.linspace(0, 1, attack_samples),           # Attack with endpoint=True (default)
-            np.linspace(1, sustain_level, decay_samples), # Decay with endpoint=True
-            np.full(sustain_samples, sustain_level),
-            np.linspace(sustain_level, 0, release_samples)  # Release with endpoint=True
-        ])
-
-        return envelope
-
-    def fade_edges(self, wave, fade_time=0.02):
-        fade_samples = int(self.sample_rate * fade_time)
-        if fade_samples * 2 > len(wave):
-            fade_samples = len(wave) // 2  # avoid overrun
-
-        fade_in = np.linspace(0, 1, fade_samples)
-        fade_out = np.linspace(1, 0, fade_samples)
-
-        wave[:fade_samples] *= fade_in
-        wave[-fade_samples:] *= fade_out
-
-        return wave
-
-
-
-
-    def play_note(self, midi_note, duration):
+    def render_note(self, midi_note, duration):
         freq = freq_from_midi(midi_note)
-        wave = self.sine_wave(freq, duration)
-        env = self.adsr_envelope(len(wave))
-        wave *= env
-        wave = self.fade_edges(wave)  # <-- Add this line here
+        total_samples = int(self.sample_rate * duration)
+        if total_samples <= 0:
+            return np.array([], dtype=np.float32)
+        
+        # FM synthesis with 8.68% modulation index
+        mod_freq = freq * 2
+        mod_index = 0.0868
+        wave = self.fm_wave(freq, mod_freq, mod_index, duration)
 
+        env = self.adsr_envelope(total_samples)
+        
+        fade_samples = int(0.005 * self.sample_rate)
+        if fade_samples * 2 > total_samples:
+            fade_samples = total_samples // 2
+        
+        wave *= env
+        
+        # Volume control (using your existing slider logic)
         with slider_val_lock:
-            slider = slider_val
+           slider = slider_val
         total_gain_db = base_gain_db \
             + slider_to_global_gain_db(slider) \
             + slider_to_global_highshelf_db(slider) \
             + slider_to_lowmid_db(slider)
-
         volume = 10 ** (total_gain_db / 20)
-        volume = max(0.02, min(volume, 0.3))
         wave *= volume
 
-        print(f"wave[0]: {wave[0]}, wave[-1]: {wave[-1]}")
+        # Resonant lowpass filter with resonance=0.25 and cutoff envelope modulated between 20 and 22.53 Hz
+        filter_env = self.filter_envelope(total_samples, peak_freq=22.53, sustain_freq=20)
+        wave = lowpass_filter_resonant(wave, filter_env, resonance=0.25, sample_rate=self.sample_rate)
+
+        # Comb filter with cutoff ~47.1Hz delay, feedback 0.968, drive 15.38%
+        wave = comb_filter_modulated(wave, sample_rate=self.sample_rate, base_delay=1/47.1, feedback=0.968, drive=0.1538)
+        
+        fade_in_samples = int(0.01 * self.sample_rate)  # 10ms fade-in
+        wave[:fade_in_samples] *= np.linspace(0, 1, fade_in_samples)
 
 
-        self.stream.write(wave.tobytes())
-
-    def add_note_to_queue(self, start_time, midi_note, duration):
-        with self.lock:
-            self.note_queue.append((start_time, midi_note, duration))
+        return wave
 
     def run(self):
         while True:
             now = time.time()
             with self.lock:
-                to_play = [note for note in self.note_queue if note[0] <= now]
-                self.note_queue = [note for note in self.note_queue if note[0] > now]
-            for start_time, midi_note, duration in to_play:
-                self.play_note(midi_note, duration)
-            time.sleep(0.001)
+                for (start_time, midi_note, duration) in self.note_queue:
+                    if start_time <= now:
+                        wave = self.render_note(midi_note, duration)
+                        self.active_notes.append((wave, 0))
+                self.note_queue = [n for n in self.note_queue if n[0] > now]
+
+            buffer = np.zeros(self.buffer_size, dtype=np.float32)
+            new_active = []
+            for wave, idx in self.active_notes:
+                end_idx = idx + self.buffer_size
+                segment = wave[idx:end_idx]
+                buffer[:len(segment)] += segment
+                if end_idx < len(wave):
+                    new_active.append((wave, end_idx))
+            self.active_notes = new_active
+
+            buffer = np.clip(buffer, -1.0, 1.0)
+            self.stream.write(buffer.tobytes())
+
+            time.sleep(self.buffer_size / self.sample_rate * 0.1)
 
 
 # Instantiate once globally somewhere after sample_rate is set:
 synth = Synth(sample_rate)
+
 
 # Create the Tk root window only once
 root = tk.Tk()
