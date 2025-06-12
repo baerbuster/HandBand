@@ -9,14 +9,18 @@ import math
 from pedalboard import Pedalboard, Reverb
 import numpy as np
 import pygame.sndarray 
+import pyaudio
 
 # === Globals ===
+sample_rate = 44100
 bpm_lock = threading.Lock()
 slider_val_lock = threading.Lock()
 
 min_bpm = 80
 max_bpm = 180
 default_bpm = 120
+base_gain_db = 0
+rest_duration = 0
 
 current_bpm = default_bpm
 slider_val = 0.5
@@ -28,6 +32,8 @@ start_bpm = default_bpm
 target_bpm = default_bpm
 ramp_start_time = None
 ramp_duration = None
+
+note_duration = 60/current_bpm
 
 # Kick trigger patterns for each slider level (label)
 kick_patterns = [
@@ -176,6 +182,11 @@ def slider_to_lowmid_db(slider):
         t = (slider - 0.5) / 0.5
         gain_db = 0 - (1 * math.log10(1 + 9 * t))
     return gain_db
+
+def freq_from_midi(midi_note):
+    # MIDI note 69 = A4 = 440 Hz
+    return 440.0 * 2 ** ((midi_note - 69) / 12)
+
 
 labels = [
     "SadLevel8", "SadLevel7", "SadLevel6", "SadLevel5",
@@ -360,6 +371,10 @@ def sequencer(stop_event):
                 play_cymbal_with_delay_and_gain(labels[current_group_index],
                                                 delay_ms, gain_db)
 
+            if step % 4 == 0:
+                midi_note = 45
+                duration = seconds_per_16th * 0.9375 * 4
+                synth.add_note_to_queue(time.time(), midi_note, duration)
             
             step = (step + 1) % steps_per_measure
             next_trigger += seconds_per_16th
@@ -371,6 +386,122 @@ def on_slider_change(val):
     with slider_val_lock:
         slider_val = float(val)
 
+import threading
+import time
+import numpy as np
+import pyaudio
+
+class Synth:
+    def __init__(self, sample_rate):
+        self.sample_rate = sample_rate
+        self.p = pyaudio.PyAudio()
+        self.stream = self.p.open(format=pyaudio.paFloat32,
+                                  channels=1,
+                                  rate=sample_rate,
+                                  output=True)
+        self.lock = threading.Lock()
+        self.note_queue = []  # list of (start_time, midi_note, duration)
+        self.thread = threading.Thread(target=self.run, daemon=True)
+        self.thread.start()
+
+    def sine_wave(self, freq, duration):
+        t = np.linspace(0, duration, int(self.sample_rate * duration), False)
+        return np.sin(2 * np.pi * freq * t).astype(np.float32)
+
+    def adsr_envelope(self, length, attack=0.155, decay=0.385, sustain_level=0.17, release=1.13):
+        attack_samples = int(self.sample_rate * attack)
+        decay_samples = int(self.sample_rate * decay)
+        release_samples = int(self.sample_rate * release)
+
+        sustain_samples = length - attack_samples - decay_samples - release_samples
+        if sustain_samples < 0:
+            sustain_samples = 0
+
+        # Sum up total samples to check if it matches length
+        total_samples = attack_samples + decay_samples + sustain_samples + release_samples
+
+        # Fix total_samples to exactly match length by adjusting sustain_samples
+        diff = length - total_samples
+
+        sustain_samples += diff
+        if sustain_samples < 0:
+            # If sustain is negative, reduce decay_samples instead (or release if needed)
+            decay_samples += sustain_samples  # sustain_samples is negative here
+            sustain_samples = 0
+            if decay_samples < 0:
+                release_samples += decay_samples  # decay_samples negative
+                decay_samples = 0
+                if release_samples < 0:
+                    release_samples = 0
+
+
+        envelope = np.concatenate([
+            np.linspace(0, 1, attack_samples),           # Attack with endpoint=True (default)
+            np.linspace(1, sustain_level, decay_samples), # Decay with endpoint=True
+            np.full(sustain_samples, sustain_level),
+            np.linspace(sustain_level, 0, release_samples)  # Release with endpoint=True
+        ])
+
+        return envelope
+
+    def fade_edges(self, wave, fade_time=0.02):
+        fade_samples = int(self.sample_rate * fade_time)
+        if fade_samples * 2 > len(wave):
+            fade_samples = len(wave) // 2  # avoid overrun
+
+        fade_in = np.linspace(0, 1, fade_samples)
+        fade_out = np.linspace(1, 0, fade_samples)
+
+        wave[:fade_samples] *= fade_in
+        wave[-fade_samples:] *= fade_out
+
+        return wave
+
+
+
+
+    def play_note(self, midi_note, duration):
+        freq = freq_from_midi(midi_note)
+        wave = self.sine_wave(freq, duration)
+        env = self.adsr_envelope(len(wave))
+        wave *= env
+        wave = self.fade_edges(wave)  # <-- Add this line here
+
+        with slider_val_lock:
+            slider = slider_val
+        total_gain_db = base_gain_db \
+            + slider_to_global_gain_db(slider) \
+            + slider_to_global_highshelf_db(slider) \
+            + slider_to_lowmid_db(slider)
+
+        volume = 10 ** (total_gain_db / 20)
+        volume = max(0.02, min(volume, 0.3))
+        wave *= volume
+
+        print(f"wave[0]: {wave[0]}, wave[-1]: {wave[-1]}")
+
+
+        self.stream.write(wave.tobytes())
+
+    def add_note_to_queue(self, start_time, midi_note, duration):
+        with self.lock:
+            self.note_queue.append((start_time, midi_note, duration))
+
+    def run(self):
+        while True:
+            now = time.time()
+            with self.lock:
+                to_play = [note for note in self.note_queue if note[0] <= now]
+                self.note_queue = [note for note in self.note_queue if note[0] > now]
+            for start_time, midi_note, duration in to_play:
+                self.play_note(midi_note, duration)
+            time.sleep(0.001)
+
+
+# Instantiate once globally somewhere after sample_rate is set:
+synth = Synth(sample_rate)
+
+# Create the Tk root window only once
 root = tk.Tk()
 root.title("Sequencer BPM Control")
 root.geometry('400x150')
@@ -385,14 +516,15 @@ slider.set(bpm_to_slider(default_bpm))
 slider.pack()
 
 stop_event = threading.Event()
-sequencer_thread = threading.Thread(target=sequencer, args=(stop_event,))
+sequencer_thread = threading.Thread(target=sequencer, args=(stop_event,), daemon=True)
 sequencer_thread.start()
 
 def on_close():
     stop_event.set()
     sequencer_thread.join()
-    pygame.mixer.quit()
+    # Any other cleanup like pygame.mixer.quit()
     root.destroy()
 
 root.protocol("WM_DELETE_WINDOW", on_close)
+
 root.mainloop()
