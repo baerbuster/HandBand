@@ -443,6 +443,38 @@ def comb_filter_modulated(wave, sample_rate, base_delay=1/47.1, feedback=0.968, 
         out[i] += feedback * out[i - delay_samples]
     return out
 
+def global_resonance_filter(wave, sample_rate, freq=85.61, resonance=13.65):
+    # Simple resonant peak using bandpass-like filter
+    # Convert resonance to Q factor (this is a loose mapping, adjust as needed)
+    q = resonance / 10  
+    w0 = 2 * np.pi * freq / sample_rate
+    alpha = np.sin(w0) / (2 * q)
+
+    b0 = alpha
+    b1 = 0
+    b2 = -alpha
+    a0 = 1 + alpha
+    a1 = -2 * np.cos(w0)
+    a2 = 1 - alpha
+
+    b = np.array([b0, b1, b2]) / a0
+    a = np.array([1, a1 / a0, a2 / a0])
+
+    return np.convolve(wave, b, mode='same') - np.convolve(wave, a[1:], mode='same')
+
+from scipy.signal import butter, lfilter
+
+def butter_lowpass(cutoff, fs, order=4):
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    return b, a
+
+def butter_lowpass_filter(data, cutoff, fs, order=4):
+    b, a = butter_lowpass(cutoff, fs, order=order)
+    y = lfilter(b, a, data)
+    return y
+
 
 class Synth:
     def __init__(self, sample_rate, buffer_size=1024):
@@ -463,9 +495,25 @@ class Synth:
     def fm_wave(self, carrier_freq, mod_freq, mod_index, duration):
         samples = int(self.sample_rate * duration)
         t = np.linspace(0, duration, samples, endpoint=False)
+
+        # LFO parameters
+        lfo_rate = 3.22  # Hz
+        lfo_depth_cents = 3.81  # cents
+
+        # Convert cents to frequency modulation depth (Hz)
+        lfo_depth = carrier_freq * (2**(lfo_depth_cents / 1200) - 1)
+
+        # LFO signal modulating carrier freq subtly
+        lfo = np.sin(2 * np.pi * lfo_rate * t) * lfo_depth
+
+        # Modulate carrier freq with LFO
+        modulated_carrier_freq = carrier_freq + lfo
+
         modulator = np.sin(2 * np.pi * mod_freq * t)
-        wave = np.sin(2 * np.pi * carrier_freq * t + mod_index * modulator).astype(np.float32)
+        wave = np.sin(2 * np.pi * modulated_carrier_freq * t + mod_index * modulator).astype(np.float32)
         return wave
+
+
 
     def adsr_envelope(self, length, attack=0.155, decay=0.385, sustain_level=0.17, release=1.13):
         attack_samples = max(1, int(self.sample_rate * attack))
@@ -495,7 +543,7 @@ class Synth:
         assert len(envelope) == length, f"Envelope length {len(envelope)} != expected {length}"
         return envelope
 
-    def filter_envelope(self, length, peak_freq=22.53, sustain_freq=20, attack=0.02, decay=0.3, release=0.5):
+    def filter_envelope(self, length, peak_freq=22.53, sustain_freq=20, attack=1.074, decay=0.246, release=0.31):
         attack_samples = int(self.sample_rate * attack)
         decay_samples = int(self.sample_rate * decay)
         release_samples = int(self.sample_rate * release)
@@ -537,6 +585,24 @@ class Synth:
         
         wave *= env
         
+        
+        global_cutoff = 85.61
+
+
+        # Resonant lowpass filter with resonance=0.25 and cutoff envelope modulated between 20 and 22.53 Hz
+        filter_env = self.filter_envelope(total_samples, peak_freq=22.53, sustain_freq=20)
+        filter_env *= global_cutoff / 20  # since 20Hz is your base
+
+        wave = lowpass_filter_resonant(wave, filter_env, resonance=0.25, sample_rate=self.sample_rate)
+
+        scaled_comb_freq = 47.1 * (global_cutoff / 20)  # scale around 20Hz base
+        base_delay = 1 / scaled_comb_freq
+        wave = comb_filter_modulated(wave, sample_rate=self.sample_rate,
+                             base_delay=base_delay, feedback=0.968, drive=0.1538)
+        
+        wave = butter_lowpass_filter(wave, cutoff=183, fs=self.sample_rate, order=4)
+
+
         # Volume control (using your existing slider logic)
         with slider_val_lock:
            slider = slider_val
@@ -544,31 +610,46 @@ class Synth:
             + slider_to_global_gain_db(slider) \
             + slider_to_global_highshelf_db(slider) \
             + slider_to_lowmid_db(slider)
-        volume = 10 ** (total_gain_db / 20)
+        volume = 1.1 ** (total_gain_db / 20)
         wave *= volume
 
-        # Resonant lowpass filter with resonance=0.25 and cutoff envelope modulated between 20 and 22.53 Hz
-        filter_env = self.filter_envelope(total_samples, peak_freq=22.53, sustain_freq=20)
-        wave = lowpass_filter_resonant(wave, filter_env, resonance=0.25, sample_rate=self.sample_rate)
-
-        # Comb filter with cutoff ~47.1Hz delay, feedback 0.968, drive 15.38%
-        wave = comb_filter_modulated(wave, sample_rate=self.sample_rate, base_delay=1/47.1, feedback=0.968, drive=0.1538)
-        
         fade_in_samples = int(0.01 * self.sample_rate)  # 10ms fade-in
         wave[:fade_in_samples] *= np.linspace(0, 1, fade_in_samples)
+
+        fade_out_samples = int(0.01 * self.sample_rate)  # 10ms fade-out
+        wave[-fade_out_samples:] *= np.linspace(1, 0, fade_out_samples)
 
 
         return wave
 
+
+    def set_delay_pattern(self, pattern_ms):
+        self.current_delay_pattern = [d / 1000 for d in pattern_ms]
+
+    def schedule_pattern(self, base_time, midi_notes, step_duration):
+        with self.lock:
+            for i, midi_note in enumerate(midi_notes):
+                if midi_note is None:
+                    continue
+                delay = self.current_delay_pattern[i] if i < len(self.current_delay_pattern) else 0
+                start = base_time + i * step_duration + delay
+                self.note_queue.append((start, midi_note, step_duration))
+                
     def run(self):
         while True:
             now = time.time()
             with self.lock:
+                print(f"[{now:.4f}] Note queue length: {len(self.note_queue)}")
                 for (start_time, midi_note, duration) in self.note_queue:
+                    print(f"  Scheduled note start_time={start_time:.4f}, midi_note={midi_note}, duration={duration}")
                     if start_time <= now:
+                        print(f"  -> Activating note {midi_note} at {now:.4f}")
                         wave = self.render_note(midi_note, duration)
+                        print(f"     Rendered wave length: {len(wave)} samples")
                         self.active_notes.append((wave, 0))
                 self.note_queue = [n for n in self.note_queue if n[0] > now]
+                print(f"[{now:.4f}] Notes remaining in queue after pruning: {len(self.note_queue)}")
+                print(f"[{now:.4f}] Active notes count before buffer processing: {len(self.active_notes)}")
 
             buffer = np.zeros(self.buffer_size, dtype=np.float32)
             new_active = []
@@ -579,11 +660,13 @@ class Synth:
                 if end_idx < len(wave):
                     new_active.append((wave, end_idx))
             self.active_notes = new_active
+            print(f"[{now:.4f}] Active notes count after buffer processing: {len(self.active_notes)}")
 
             buffer = np.clip(buffer, -1.0, 1.0)
             self.stream.write(buffer.tobytes())
 
-            time.sleep(self.buffer_size / self.sample_rate * 0.1)
+            time.sleep(self.buffer_size / self.sample_rate * 0.01)
+
 
 
 # Instantiate once globally somewhere after sample_rate is set:
