@@ -399,7 +399,7 @@ def sequencer(stop_event):
                                                 delay_ms, gain_db)
 
             if step % 4 == 0:
-                midi_note = 45
+                midi_note = 36
                 duration = seconds_per_16th * 0.9375 * 4
                 synth.schedule_note(time.time() + 0.05, midi_note, duration)
 
@@ -475,8 +475,11 @@ def butter_lowpass_filter(data, cutoff, fs, order=4):
     return y
 
 def slider_to_osc1_volume(slider):
-    db = -13 * slider
+    # Interpolate dB from 0 dB at slider=0 to -40 dB at slider=1
+    # So at slider=0.5, db = -20 dB (halfway)
+    db = -40 * (slider) 
     return 10 ** (db / 20)
+
 
 # Dummy freq_from_midi, slider_val, slider_val_lock, base_gain_db, slider_to_global_gain_db, slider_to_global_highshelf_db, slider_to_lowmid_db
 # These must be defined elsewhere in your full code as per original
@@ -516,6 +519,8 @@ class Synth:
         self.thread.start()
         self.osc1_volume = 1.0  
         self.master_volume = 1.0  # full volume by default
+        self.prev_resonance = None
+
 
 
         import soundfile as sf
@@ -680,8 +685,7 @@ class Synth:
             osc1_slider = slider_val
         mod_index = 0.0868 * (1 - osc1_slider)  # Linear: 0.0868 at 0 slider, 0 at 1 slider
         fm_wave = self.fm_wave(freq, mod_freq, mod_index, duration)
-        osc1_volume = slider_to_osc1_volume(osc1_slider)
-        fm_wave *= osc1_volume
+        
 
         lfo_rate = 3.22
         min_depth = 0.001
@@ -697,41 +701,104 @@ class Synth:
         sample_wave = self.sample_oscillator(duration)
         with slider_val_lock:
             slider = slider_val
-        sample_volume_db = -60 * (1 - slider)  # -60dB at slider=0, 0dB at slider=1
-        sample_volume = 10 ** (sample_volume_db / 20)
-        sample_wave *= sample_volume
+        
+        smoothing = 0.5  # adjust for transition speed
 
+        target_osc1_vol = slider_to_osc1_volume(osc1_slider)
+        target_sample_vol_db = -40 * ((1 - slider) ** 4)
 
-        # Mix oscillators
+        target_sample_vol = 10 ** (target_sample_vol_db / 20)
+
+        if not hasattr(self, 'prev_osc1_volume'):
+            self.prev_osc1_volume = target_osc1_vol
+        if not hasattr(self, 'prev_sample_volume'):
+            self.prev_sample_volume = target_sample_vol
+
+        self.prev_osc1_volume = (1 - smoothing) * self.prev_osc1_volume + smoothing * target_osc1_vol
+        self.prev_sample_volume = (1 - smoothing) * self.prev_sample_volume + smoothing * target_sample_vol
+
+        fm_wave *= self.prev_osc1_volume
+        sample_wave *= self.prev_sample_volume
+
         combined_wave = fm_wave + sample_wave
+
 
         # ADSR envelope
         env = self.adsr_envelope(total_samples, slider)
         combined_wave *= env
 
-        global_cutoff = 85.61
-        filter_env = self.filter_envelope(total_samples, peak_freq=22.53, sustain_freq=20)
         with slider_val_lock:
             slider = slider_val
+
+        # Store previous slider value and check for significant change
+        slider_threshold = 0.001
+        if not hasattr(self, 'prev_slider_cutoff'):
+            self.prev_slider_cutoff = slider
+
+        slider_changed = abs(slider - self.prev_slider_cutoff) > slider_threshold
+        self.prev_slider_cutoff = slider  # update stored slider
+
+        # Compute filter envelope
+        filter_env = self.filter_envelope(total_samples, peak_freq=22.53, sustain_freq=20)
         filter_env = filter_env * (1 - slider) + np.mean(filter_env) * slider
+
+        # Compute target cutoff
         log_min = np.log(85.61)
         log_max = np.log(246)
-        with slider_val_lock:
-            slider = slider_val
-        global_cutoff = np.exp(log_min * (1 - slider) + log_max * slider)
+        target_global_cutoff = np.exp(log_min * (1 - slider) + log_max * slider)
+
+        # Smooth cutoff only if slider changed
+        if not hasattr(self, 'prev_global_cutoff'):
+            self.prev_global_cutoff = target_global_cutoff
+        elif slider_changed:
+            smoothing_factor = 0.005
+            self.prev_global_cutoff = (1 - smoothing_factor) * self.prev_global_cutoff + smoothing_factor * target_global_cutoff
+
+        # Apply smoothed cutoff
+        global_cutoff = self.prev_global_cutoff
         filter_env *= global_cutoff / 20
+
+
 
   
 
         with slider_val_lock:
             slider = slider_val
+
+        resonance_threshold = 0.001
+        if not hasattr(self, 'prev_slider_resonance'):
+            self.prev_slider_resonance = slider
+
+        slider_changed = abs(slider - self.prev_slider_resonance) > resonance_threshold
+        self.prev_slider_resonance = slider
+
         low_res = 0.3
         high_res = 2.0
-        resonance = low_res * (high_res / low_res) ** slider
+        target_resonance = low_res + (high_res - low_res) * (slider ** 0.5)
+
+        if self.prev_resonance is None:
+            self.prev_resonance = target_resonance
+        elif slider_changed:
+            smoothing_factor = 0.005
+            self.prev_resonance = (1 - smoothing_factor) * self.prev_resonance + smoothing_factor * target_resonance
+
+        resonance = self.prev_resonance
+
+
 
         with slider_val_lock:
             slider = slider_val
-        drive = 1 + 0.2757 * slider
+        target_drive = 1 + 0.2757 * slider
+
+        if not hasattr(self, 'prev_drive'):
+            self.prev_drive = target_drive
+        else:
+            smoothing_factor = 0.005  # adjust between 0.05 and 0.2 as needed
+            self.prev_drive = (1 - smoothing_factor) * self.prev_drive + smoothing_factor * target_drive
+
+        drive = self.prev_drive
+
+
 
         combined_wave = lowpass_filter_resonant(
     combined_wave, filter_env, resonance=resonance, sample_rate=self.sample_rate, drive=drive
@@ -741,78 +808,118 @@ class Synth:
         with slider_val_lock:
             slider = slider_val
 
-        # Logarithmic interpolation
-        min_freq = 39.94
-        max_freq = 47.1
-        log_min = np.log(min_freq)
-        log_max = np.log(max_freq)
-        scaled_comb_freq = np.exp(log_max * (1 - slider) + log_min * slider)
+        # Define smoothing factor and threshold for slider changes
+        smoothing = 0.005
+        slider_threshold = 0.001  # tweak as needed
 
-        min_percent = 0.0888   # 8.88%
-        max_percent = 1.0      # 100%
-        log_min = np.log(min_percent)
-        log_max = np.log(max_percent)
-        comb_env_amount = np.exp(log_max * (1 - slider) + log_min * slider)
+        # Initialize previous slider and parameters on first run
+        if not hasattr(self, 'prev_slider'):
+            self.prev_slider = slider
+        if not hasattr(self, 'prev_comb_drive'):
+            self.prev_comb_drive = 0.15 * np.exp(-5 * slider)
+        if not hasattr(self, 'prev_delay_time'):
+            max_delay_s = 0.02
+            min_delay_s = 0.005
+            self.prev_delay_time = max_delay_s * (1 - slider) + min_delay_s * slider
 
+        target_drive = 0.15 * np.exp(-5 * slider)
+        self.prev_comb_drive = (1 - smoothing) * self.prev_comb_drive + smoothing * target_drive
 
-        # Apply envelope modulation scaled by comb_env_amount (same filter_env)
-        comb_filter_env = filter_env * comb_env_amount
+        max_delay_s = 0.02
+        min_delay_s = 0.005
+        target_delay = max_delay_s * (1 - slider) + min_delay_s * slider
+        self.prev_delay_time = (1 - smoothing) * self.prev_delay_time + smoothing * target_delay
 
-        # Calculate comb filter frequency with envelope modulation
-        scaled_comb_freq = np.exp(log_max * (1 - slider) + log_min * slider)
-        scaled_comb_freq *= comb_filter_env / 20  # modulate cutoff with envelope
-
-        mean_comb_freq = np.mean(scaled_comb_freq)
-        raw_delay = 1 / mean_comb_freq
-
-        min_delay_samples = int(self.sample_rate * 0.002)  # 10 ms minimum delay
-        delay_samples = max(int(self.sample_rate * raw_delay), min_delay_samples)
-        base_delay = delay_samples / self.sample_rate
+        self.prev_slider = slider
 
 
-        with slider_val_lock:
-            slider = slider_val
-
-        # Map slider 0→1 to drive 0.1538 → ~0 (exponential decay)
-        drive = 1 + 0.1538 * np.exp(-5 * slider)
+        drive = self.prev_comb_drive
+        delay_time = self.prev_delay_time
+        feedback = 0.01  # fixed low feedback for chill effect
 
         combined_wave = comb_filter_modulated(
             combined_wave, sample_rate=self.sample_rate,
-            base_delay=base_delay, feedback=0.3, drive=drive
+            base_delay=delay_time, feedback=feedback, drive=drive
         )
+
+
 
         combined_wave *= (1 + lfo_wave)  # or scale/offset as needed
 
         with slider_val_lock:
             slider = slider_val
-        total_gain_db = base_gain_db \
-            + slider_to_global_gain_db(slider) \
-            + slider_to_global_highshelf_db(slider) \
-            + slider_to_lowmid_db(slider)
-        volume = 1.1 ** (total_gain_db / 20)
-        combined_wave *= volume
 
-        min_blend = 0.01  # can't be zero for log scale, use small positive
-        max_blend = 1.0
-        blend = min_blend * (max_blend / min_blend) ** slider
+        smoothing = 0.005
 
-        combined_wave = tube_drive(combined_wave, gain=1.5, bias=0.25, blend=blend)
+        if not hasattr(self, 'prev_tube_gain'):
+            self.prev_tube_gain = 1.0
+        if not hasattr(self, 'prev_tube_bias'):
+            self.prev_tube_bias = 0.0
+        if not hasattr(self, 'prev_tube_blend'):
+            self.prev_tube_blend = 0.0
 
-        min_mix = 0.001  # small positive to avoid zero in log scale
-        max_mix = 0.25
-        mix = min_mix * (max_mix / min_mix) ** slider
+        target_gain = 1.0 + (3.0 - 1.0) * (slider ** 2)
+        target_bias = 0.0 + 0.2 * (slider ** 1.5)
+        target_blend = 0.5 * (slider ** 0.5)
 
-        combined_wave = bitcrusher(combined_wave, bit_depth=12, downsample_factor=3, mix=mix)  # 50% wet
+        self.prev_tube_gain = (1 - smoothing) * self.prev_tube_gain + smoothing * target_gain
+        self.prev_tube_bias = (1 - smoothing) * self.prev_tube_bias + smoothing * target_bias
+        self.prev_tube_blend = (1 - smoothing) * self.prev_tube_blend + smoothing * target_blend
+
+        combined_wave = tube_drive(
+            combined_wave,
+            gain=self.prev_tube_gain,
+            bias=self.prev_tube_bias,
+            blend=self.prev_tube_blend
+        )
+
 
         with slider_val_lock:
             slider = slider_val
+
+        if slider < 0.001:
+            # Effect fully off, just pass through
+            combined_wave_processed = combined_wave
+        else:
+            smoothing = 0.005
+            min_mix = 0.0
+            max_mix = 0.25
+
+            if not hasattr(self, 'prev_bitcrusher_mix'):
+                self.prev_bitcrusher_mix = 0.0  # start fully off
+
+            target_mix = max_mix * (slider ** 0.5)
+
+            self.prev_bitcrusher_mix = (1 - smoothing) * self.prev_bitcrusher_mix + smoothing * target_mix
+
+            combined_wave_processed = bitcrusher(
+                combined_wave,
+                bit_depth=12,
+                downsample_factor=3,
+                mix=self.prev_bitcrusher_mix
+            )
+
+        combined_wave = combined_wave_processed
+
+        with slider_val_lock:
+            slider = slider_val
+
+        smoothing = 0.005
         min_cutoff = 183
         max_cutoff = 20000
         log_min = np.log(min_cutoff)
         log_max = np.log(max_cutoff)
-        cutoff = np.exp(log_min * (1 - slider) + log_max * slider)
+        target_cutoff = np.exp(log_min * (1 - slider) + log_max * slider)
+
+        if not hasattr(self, 'prev_cutoff'):
+            self.prev_cutoff = target_cutoff
+
+        self.prev_cutoff = (1 - smoothing) * self.prev_cutoff + smoothing * target_cutoff
+
+        cutoff = self.prev_cutoff
 
         combined_wave = butter_lowpass_filter(combined_wave, cutoff=cutoff, fs=self.sample_rate, order=4)
+
 
         fade_in_samples = int(0.01 * self.sample_rate)
         combined_wave[:fade_in_samples] *= np.linspace(0, 1, fade_in_samples)
@@ -821,6 +928,13 @@ class Synth:
         combined_wave[-fade_out_samples:] *= np.linspace(1, 0, fade_out_samples)
 
         combined_wave *= self.master_volume
+
+        def normalize_rms(signal, target_rms=0.1, eps=1e-8):
+            rms = np.sqrt(np.mean(signal**2)) + eps
+            return signal * (target_rms / rms)
+
+        combined_wave = normalize_rms(combined_wave, target_rms=0.1)
+
 
         return combined_wave
 
@@ -866,7 +980,7 @@ class Synth:
 
 # Instantiate once globally somewhere after sample_rate is set:
 synth = Synth(sample_rate)
-synth.set_master_volume(0.1)  # sets volume to 50%
+synth.set_master_volume(0.75)  # sets volume to 50%
 
 
 
