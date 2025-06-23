@@ -22,6 +22,8 @@ default_bpm = 120
 base_gain_db = 10
 rest_duration = 0
 
+tonic = 36
+
 current_bpm = default_bpm
 slider_val = 0.5
 
@@ -95,6 +97,27 @@ cymbal_patterns = [
     [1,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, ],
     [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, ], #HappyLevel8
 ]
+
+bass_patterns = [
+    ['1','c','c','c',  'c','c','c','c', '1','c','c','c', '1','c','c','c', ], #SadLevel8
+    ['1','c','b2','c', 'b3','c','4','c', '5','c','b6','c', 'b7','c','8','c', ],
+    ['1','c','2','c', 'b3','c','4','c', '5','c','b6','c', 'b7','c','8','c', ],
+    ['1','c','2','c', 'b3','c','4','c', '5','c','b6','c', 'b7','c','8','c', ],
+    ['1','c','2','c', 'b3','c','4','c', '5','c','b6','c', 'b7','c','8','c', ],
+    ['1','c','2','c', 'b3','c','4','c', '5','c','6','c', 'b7','c','8','c', ],
+    ['1','c','2','c', 'b3','c','4','c', '5','c','6','c', 'b7','c','8','c', ],
+    ['1','c','2','c', 'b3','c','4','c', '5','c','6','c', 'b7','c','8','c', ],
+    ['1','c','2','c', '3','c','4','c', '5','c','6','c', 'b7','c','8','c', ], #Neutral
+    ['1','c','2','c', '3','c','4','c', '5','c','6','c', 'b7','c','8','c', ],
+    ['1','c','2','c', '3','c','4','c', '5','c','6','c', 'b7','c','8','c', ],
+    ['1','c','2','c', '3','c','4','c', '5','c','6','c', '7','c','8','c', ],
+    ['1','c','2','c', '3','c','4','c', '5','c','6','c', '7','c','8','c', ],
+    ['1','c','2','c', '3','c','4','c', '5','c','6','c', '7','c','8','c', ],
+    ['1','c','2','c', '3','c','#4','c', '5','c','6','c', '7','c','8','c', ],
+    ['1','c','2','c', '3','c','#4','c', '5','c','6','c', '7','c','8','c', ],
+    ['1','c','c','c',  'c','c','c','c', '1','c','c','c', '1','c','c','c', ], #HappyLevel8
+]
+
 
 # Delay patterns
 # Delay patterns
@@ -182,6 +205,48 @@ def slider_to_lowmid_db(slider):
         t = (slider - 0.5) / 0.5
         gain_db = 0 - (1 * math.log10(1 + 9 * t))
     return gain_db
+
+# Reverse map: interval name to semitone offset
+interval_to_semitone = {
+    '-1':-12, '-b2':-11, '-2':-10,
+    '-b3':-9, '-3':-8, '-4':-7,
+    '-#4':-6, '-b5':-6, '-5':-5,
+    '-b6':-4, '-6':-3, '-b7':-2, '-7':-1,
+    '1': 0, 'b2': 1, '2': 2, 'b3': 3,
+    '3': 4, '4': 5, '#4': 6, 'b5': 6, '5': 7,
+    'b6': 8, '6': 9, 'b7': 10, '7': 11,
+    '8': 12
+}
+
+def midi_notes_from_degrees(degrees, tonic_note=tonic):
+    midi_notes = []
+    for deg in degrees:
+        semitone = interval_to_semitone.get(deg)
+        if semitone is None:
+            raise ValueError(f"Unknown scale degree: {deg}")
+        midi_notes.append(tonic_note + semitone)
+    return midi_notes
+
+def get_degree_name(midi_note, tonic_note=tonic):
+    diff = midi_note - tonic_note
+    wrapped = diff % 12
+    if diff >= 0:
+        return scale_degree_map.get(wrapped, '?')
+    else:
+        return scale_degree_map.get(wrapped - 12, '?')  # negative equivalent
+bass_scales = {
+    "scale1": ["1", "b2", "b3", "4", "5", "b6", "b7", "8"],
+    "scale2": ["1", "2", "b3", "4", "5", "b6", "b7", "8"],
+    "scale3": ["1", "2", "b3", "4", "5", "6", "b7", "8"],
+    "scale4": ["1", "2", "3", "4", "5", "6", "b7", "8"],
+    "scale5": ["1", "2", "3", "4", "5", "6", "7", "8"],
+    "scale6": ["1", "2", "3", "#4", "5", "6", "7", "8"]
+}
+
+midi_pattern_library = {
+    name: midi_notes_from_degrees(degrees, tonic_note=tonic)
+    for name, degrees in bass_scales.items()
+}
 
 def freq_from_midi(midi_note):
     # MIDI note 69 = A4 = 440 Hz
@@ -321,8 +386,16 @@ def play_cymbal_with_delay_and_gain(label, delay_ms, gain_db):
 def sequencer(stop_event):
     global current_group_index, current_bpm, start_bpm, target_bpm, ramp_start_time, ramp_duration
 
-    next_trigger = time.time()
+    global_delay = 0.03
+    next_trigger = time.time() + global_delay
     step = 0
+    note_index = 0  # to cycle through midi_note_pattern
+    kick_time = 0
+    drum_delay = 0.04
+    last_note_end_time = 0  # global or at the start of your sequencer function or script
+
+
+
 
     morph_active = False
     morph_start_index = current_group_index
@@ -366,6 +439,7 @@ def sequencer(stop_event):
         seconds_per_16th = seconds_per_beat / 4
 
         now = time.time()
+        
         if now >= next_trigger:
             if morph_active:
                 group_distance = abs(morph_end_index - morph_start_index)
@@ -383,31 +457,68 @@ def sequencer(stop_event):
                     current_group_index = morph_end_index
 
             if kick_patterns[current_group_index][step]:
-                delay_ms = delay_patterns_ms[current_group_index][step]
+                delay_ms = delay_patterns_ms[current_group_index][step] + drum_delay * 1000
                 gain_db = global_accents[current_group_index][step]
+                kick_time = time.time()
                 play_sample_with_delay_and_gain(labels[current_group_index], delay_ms, gain_db)
 
             if snare_patterns[current_group_index][step]:
-                delay_ms = delay_patterns_ms[current_group_index][step]
+                delay_ms = delay_patterns_ms[current_group_index][step] + drum_delay * 1000
                 gain_db = global_accents[current_group_index][step]
                 play_snare_with_delay_and_gain(labels[current_group_index], delay_ms, gain_db)
 
             if cymbal_patterns[current_group_index][step]:
-                delay_ms = delay_patterns_ms[current_group_index][step]
+                delay_ms = delay_patterns_ms[current_group_index][step] + drum_delay * 1000
                 gain_db   = global_accents[current_group_index][step]
                 play_cymbal_with_delay_and_gain(labels[current_group_index],
                                                 delay_ms, gain_db)
 
-            if step % 4 == 0:
-                midi_note = 36
-                duration = seconds_per_16th * 0.9375 * 4
-                synth.schedule_note(time.time() + 0.05, midi_note, duration)
+            selected_bass_pattern = bass_patterns[current_group_index]
+
+
+            
+            
+            def get_extended_duration(pattern, start_index, base_duration):
+                length = len(pattern)
+                total_steps = 1  # count current note
+                i = (start_index + 1) % length
+                while pattern[i] == 'c':
+                    total_steps += 1
+                    i = (i + 1) % length
+                    if i == start_index:
+                        break  # avoid infinite loop if pattern all 'c's
+                return base_duration * total_steps
+
+            degree = selected_bass_pattern[note_index % len(selected_bass_pattern)]
+            base_duration = seconds_per_16th * 0.9375 * 2  # whole beat
+            now = time.time()
+
+            if degree == 0 or degree == 'c':
+                # Don't schedule; just advance
+                note = None
+            else:
+                degree_str = degree if isinstance(degree, str) else str(degree)
+                note = tonic + interval_to_semitone[degree_str]
+                duration = get_extended_duration(selected_bass_pattern, note_index % len(selected_bass_pattern), base_duration)
+                
+                synth.schedule_note(now, note, duration)
+
+            note_index += 1
+
+
+
+
 
             
             step = (step + 1) % steps_per_measure
             next_trigger += seconds_per_16th
         else:
-            time.sleep(min(0.001, next_trigger - now))
+            time_to_sleep = next_trigger - now
+            if time_to_sleep > 0:
+                time.sleep(time_to_sleep)
+
+        
+
 
 def on_slider_change(val):
     global slider_val
@@ -420,20 +531,19 @@ import numpy as np
 import pyaudio
 import wave
 
-def lowpass_filter_resonant(wave, cutoff_freqs, resonance, sample_rate, drive=1):
+def lowpass_filter_resonant(wave, cutoff_freqs, resonance, sample_rate, drive, low, band):
     out = np.zeros_like(wave)
     f = 2 * np.sin(np.pi * cutoff_freqs / sample_rate)
     q = resonance
-    low = 0.0
-    band = 0.0
     for i in range(len(wave)):
-        sample = np.tanh(wave[i] * drive)  # drive added here
+        sample = np.tanh(wave[i] * drive)
         notch = sample - q * band
         low += f[i] * band
         high = notch - low
         band += f[i] * high
         out[i] = low
-    return out
+    return out, low, band
+
 
 
 def comb_filter_modulated(wave, sample_rate, base_delay=1/47.1, feedback=0.3, drive=1.1538, env_percent=1.0):
@@ -520,6 +630,9 @@ class Synth:
         self.osc1_volume = 1.0  
         self.master_volume = 1.0  # full volume by default
         self.prev_resonance = None
+        self.lowpass_low = 0.0
+        self.lowpass_band = 0.0
+
 
 
 
@@ -607,7 +720,7 @@ class Synth:
             envelope = envelope[:length]
 
         assert len(envelope) == length, f"Envelope length {len(envelope)} != expected {length}"
-        return envelope
+        return envelope, attack
 
     def filter_envelope(self, length, peak_freq=22.53, sustain_freq=20, slider=0.0):
         # Logarithmic attack time: 1.074s → ~0s
@@ -651,7 +764,11 @@ class Synth:
 
 
 
-    def sample_oscillator(self, duration):
+    def sample_oscillator(self, duration, midi_note):
+        base_midi_note = 36  # root of the original sample
+        semitone_diff = midi_note - base_midi_note
+        playback_rate = 2 ** (semitone_diff / 12)
+
         if self.sample_rate_wave != self.sample_rate:
             factor = len(self.sample_wave) * self.sample_rate / self.sample_rate_wave
             resampled = np.interp(
@@ -662,11 +779,32 @@ class Synth:
         else:
             resampled = self.sample_wave
 
-        total_samples = int(self.sample_rate * duration)
+        # Apply pitch shifting by changing the playback rate
+        new_len = int(len(resampled) / playback_rate)
+        resampled = np.interp(
+            np.linspace(0, len(resampled), new_len, endpoint=False),
+            np.arange(len(resampled)),
+            resampled
+        )
 
+        total_samples = int(self.sample_rate * duration)
         if len(resampled) < total_samples:
             repeats = total_samples // len(resampled) + 1
             resampled = np.tile(resampled, repeats)
+
+        latency_ms = 0.7  # try tuning this value by ear
+        latency_samples = int(self.sample_rate * latency_ms / 1000)
+
+        if len(resampled) > latency_samples:
+            resampled = resampled[latency_samples:]
+        else:
+            resampled = np.zeros_like(resampled)
+
+        # Ensure it's still the right length
+        if len(resampled) < total_samples:
+            repeats = total_samples // len(resampled) + 1
+            resampled = np.tile(resampled, repeats)
+
         return resampled[:total_samples]
 
     def schedule_note(self, start_time, midi_note, duration):
@@ -698,7 +836,7 @@ class Synth:
 
 
         # New sample oscillator wave
-        sample_wave = self.sample_oscillator(duration)
+        sample_wave = self.sample_oscillator(duration, midi_note)
         with slider_val_lock:
             slider = slider_val
         
@@ -724,8 +862,9 @@ class Synth:
 
 
         # ADSR envelope
-        env = self.adsr_envelope(total_samples, slider)
+        env, attack = self.adsr_envelope(total_samples, slider)
         combined_wave *= env
+        
 
         with slider_val_lock:
             slider = slider_val
@@ -800,9 +939,11 @@ class Synth:
 
 
 
-        combined_wave = lowpass_filter_resonant(
-    combined_wave, filter_env, resonance=resonance, sample_rate=self.sample_rate, drive=drive
+        combined_wave, self.lowpass_low, self.lowpass_band = lowpass_filter_resonant(
+    combined_wave, filter_env, resonance, self.sample_rate, drive,
+    self.lowpass_low, self.lowpass_band
 )
+
 
 
         with slider_val_lock:
@@ -921,11 +1062,14 @@ class Synth:
         combined_wave = butter_lowpass_filter(combined_wave, cutoff=cutoff, fs=self.sample_rate, order=4)
 
 
-        fade_in_samples = int(0.01 * self.sample_rate)
+        fade_in_samples = max(1, int(self.sample_rate * attack))
         combined_wave[:fade_in_samples] *= np.linspace(0, 1, fade_in_samples)
 
-        fade_out_samples = int(0.01 * self.sample_rate)
+        fade_out_samples = int(0.01 * self.sample_rate)  # Keep fade-out short
         combined_wave[-fade_out_samples:] *= np.linspace(1, 0, fade_out_samples)
+
+        
+
 
         combined_wave *= self.master_volume
 
@@ -935,18 +1079,16 @@ class Synth:
 
         combined_wave = normalize_rms(combined_wave, target_rms=0.1)
 
+        
 
         return combined_wave
 
-    def set_delay_pattern(self, pattern_ms):
-        self.current_delay_pattern = [d / 1000 for d in pattern_ms]
-
-    def schedule_pattern(self, base_time, midi_notes, step_duration):
+    def schedule_pattern(self, base_time, midi_notes, step_duration, delay_pattern_sec):
         with self.lock:
             for i, midi_note in enumerate(midi_notes):
                 if midi_note is None:
                     continue
-                delay = self.current_delay_pattern[i] if i < len(self.current_delay_pattern) else 0
+                delay = delay_pattern_sec[i] if i < len(delay_pattern_sec) else 0
                 start = base_time + i * step_duration + delay
                 self.note_queue.append((start, midi_note, step_duration))
 
@@ -956,6 +1098,9 @@ class Synth:
             with self.lock:
                 for (start_time, midi_note, duration) in self.note_queue:
                     if start_time <= now:
+                        delay_ms = (now - start_time) * 1000
+                        print(f"[SCHEDULER] Note {midi_note} scheduled for {start_time:.6f}, triggered at {now:.6f}, delay = {delay_ms:.2f} ms")
+                
                         wave = self.render_note(midi_note, duration)
                         self.active_notes.append((wave, 0))
                 self.note_queue = [n for n in self.note_queue if n[0] > now]
@@ -970,8 +1115,25 @@ class Synth:
                     new_active.append((wave, end_idx))
             self.active_notes = new_active
 
+            
+            # After mixing all active notes into 'buffer'
+            diffs = np.diff(buffer)
+            crackle_indices = np.where(np.abs(diffs) > 0.3)[0]  # tweak threshold if needed
+
+            if len(crackle_indices) > 0:
+                print(f"[CRACKLE DETECTED] Large jumps at samples: {crackle_indices}")
+
             buffer = np.clip(buffer, -1.0, 1.0)
+
+            buffer_start_time = time.time()
+            print(f"[DEBUG] Buffer min: {buffer.min()}, max: {buffer.max()}, mean: {buffer.mean()}")
+
             self.stream.write(buffer.tobytes())
+            buffer_end_time = time.time()
+            write_duration_ms = (buffer_end_time - buffer_start_time) * 1000
+            expected_ms = (self.buffer_size / self.sample_rate) * 1000
+            print(f"[STREAM] Buffer write took {write_duration_ms:.2f} ms, expected {expected_ms:.2f} ms")
+
 
             time.sleep(self.buffer_size / self.sample_rate * 0.01)
 
