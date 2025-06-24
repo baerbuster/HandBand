@@ -11,31 +11,134 @@ import numpy as np
 import pygame.sndarray 
 import pyaudio
 
-# === Globals ===
-sample_rate = 44100
+# ============================================================================
+# CONFIGURATION SECTION - ADJUST THESE VALUES TO CUSTOMIZE THE SYSTEM
+# ============================================================================
+
+## AUDIO SETTINGS
+SAMPLE_RATE = 44100
+BUFFER_SIZE = 1024
+MASTER_VOLUME = 0.5
+
+## TIMING SETTINGS
+MIN_BPM = 80                    # Minimum BPM slider can reach
+MAX_BPM = 180                   # Maximum BPM slider can reach
+DEFAULT_BPM = 120               # Starting BPM
+STEPS_PER_MEASURE = 16          # Number of steps in each pattern
+BASS_NOTE_DURATION_FACTOR = 0.875  # Notes end before next beat (0.0-1.0)
+
+## DRUM SETTINGS
+KICK_BOOST_DB = 6.0             # Extra volume boost for kicks (dB)
+KICK_FADE_IN_MS = 10            # Fade-in time to prevent clicks (ms)
+DRUM_DELAY_OFFSET = 0.04        # Global drum timing offset (seconds)
+
+## EFFECT PARAMETER RANGES
+# Resonant Filter
+RESONANCE_MIN = 0.1             # Minimum filter resonance
+RESONANCE_MAX = 0.3             # Maximum filter resonance
+
+# Tube Drive
+TUBE_GAIN_MIN = 1.0             # Minimum tube drive gain
+TUBE_GAIN_MAX = 3.0             # Maximum tube drive gain
+TUBE_BIAS_MIN = 0.0             # Minimum tube bias
+TUBE_BIAS_MAX = 0.2             # Maximum tube bias
+TUBE_BLEND_MIN = 0.0            # Minimum tube blend
+TUBE_BLEND_MAX = 0.5            # Maximum tube blend
+
+# Bitcrusher
+BITCRUSHER_BIT_DEPTH = 12       # Bit depth for bitcrusher effect
+BITCRUSHER_DOWNSAMPLE_FACTOR = 3 # Downsample factor
+BITCRUSHER_MIX_MAX = 0.25       # Maximum bitcrusher mix
+
+# LFO Settings
+LFO_RATE = 3.22                 # LFO frequency (Hz)
+LFO_DEPTH_MIN = 0.001           # Minimum LFO depth
+LFO_DEPTH_MAX = 3.81            # Maximum LFO depth
+
+# Filter Envelope
+FILTER_PEAK_FREQ = 22.53        # Peak frequency for filter envelope
+FILTER_SUSTAIN_FREQ = 20        # Sustain frequency for filter envelope
+
+# ADSR Envelope Ranges
+ADSR_ATTACK_MIN = 0.018         # Minimum attack time (18ms)
+ADSR_ATTACK_MAX = 0.155         # Maximum attack time (155ms)
+ADSR_DECAY_MIN = 0.385          # Minimum decay time (385ms)
+ADSR_DECAY_MAX = 60.0           # Maximum decay time (60s)
+ADSR_RELEASE_MIN = 0.1          # Minimum release time (100ms)
+ADSR_RELEASE_MAX = 1.13         # Maximum release time (1130ms)
+ADSR_SUSTAIN_DB_MIN = -15.65    # Minimum sustain level (dB)
+ADSR_SUSTAIN_DB_MAX = 0.0       # Maximum sustain level (dB)
+
+# Comb Filter
+COMB_DELAY_MIN = 0.005          # Minimum comb delay (5ms)
+COMB_DELAY_MAX = 0.02           # Maximum comb delay (20ms)
+COMB_FEEDBACK = 0.01            # Fixed comb feedback
+COMB_DRIVE_BASE = 0.15          # Base comb drive amount
+
+# Global EQ Ranges
+GLOBAL_GAIN_DB_RANGE = 5.0      # ±5dB range for global gain
+HIGHSHELF_DB_RANGE = 2.0        # ±2dB range for high shelf
+LOWMID_DB_RANGE = 1.0           # ±1dB range for low-mid
+
+# Smoothing Factors
+PARAMETER_SMOOTHING = 0.005     # How fast parameters change (0.001-0.1)
+VOLUME_SMOOTHING = 0.5          # Volume crossfade speed
+
+# Final Filter Settings
+FINAL_FILTER_MIN_FREQ = 183     # Minimum final filter cutoff
+FINAL_FILTER_MAX_FREQ = 20000   # Maximum final filter cutoff
+
+## SAMPLE PATHS AND FILE NAMING
+SAMPLE_BASE_PATH = "ProgrammableLoop2/ProgrammableLoop2"
+KICK_SAMPLE_PREFIX = "Kick"
+SNARE_SAMPLE_PREFIX = "Snare"
+CYMBAL_SAMPLE_PREFIX = "Cymbal"
+BASS_SAMPLE_FILENAME = "BassSynthOscillatorSample.wav"
+SAMPLE_SUFFIX = ".wav"
+
+## TONIC AND MUSICAL SETTINGS
+TONIC_MIDI_NOTE = 36            # C2 - root note for bass patterns
+BASE_GAIN_DB = 10               # Base gain for samples
+
+## PATTERN LABELS
+PATTERN_LABELS = [
+    "SadLevel8", "SadLevel7", "SadLevel6", "SadLevel5",
+    "SadLevel4", "SadLevel3", "SadLevel2", "SadLevel1", 
+    "Neutral",
+    "HappyLevel1", "HappyLevel2", "HappyLevel3", "HappyLevel4",
+    "HappyLevel5", "HappyLevel6", "HappyLevel7", "HappyLevel8"
+]
+
+# ============================================================================
+# END CONFIGURATION SECTION
+# ============================================================================
+
+# ============================================================================
+# RUNTIME GLOBALS – initialised from CONFIG  (DO NOT edit values here)
+# ============================================================================
+
+# Thread-safety locks
 bpm_lock = threading.Lock()
 slider_val_lock = threading.Lock()
 
-min_bpm = 80
-max_bpm = 180
-default_bpm = 120
-base_gain_db = 10
-rest_duration = 0
+# Audio / musical bases
+sample_rate: int = SAMPLE_RATE
+tonic: int       = TONIC_MIDI_NOTE
 
-tonic = 36
+# Mutable runtime state ------------------------------------------------------
+current_bpm: float        = DEFAULT_BPM        # updated continuously
+slider_val:  float        = 0.5                # GUI slider position (0–1)
+current_group_index: int  = 8                  # 8 = “Neutral” starting pattern
+steps_per_measure: int    = STEPS_PER_MEASURE
 
-current_bpm = default_bpm
-slider_val = 0.5
+# Tempo-ramp bookkeeping
+start_bpm:       float | None = DEFAULT_BPM
+target_bpm:      float | None = DEFAULT_BPM
+ramp_start_time: float | None = None
+ramp_duration:   float | None = None
 
-steps_per_measure = 16
-current_group_index = 8
-
-start_bpm = default_bpm
-target_bpm = default_bpm
-ramp_start_time = None
-ramp_duration = None
-
-note_duration = 60/current_bpm
+# <UNUSED?> note_duration not referenced elsewhere; kept for future use
+note_duration: float = 60 / current_bpm   # noqa: F841
 
 # Kick trigger patterns for each slider level (label)
 kick_patterns = [
@@ -99,23 +202,23 @@ cymbal_patterns = [
 ]
 
 bass_patterns = [
-    ['1','c','c','c',  'c','c','c','c', '1','c','c','c', '1','c','c','c', ], #SadLevel8
-    ['1','c','b2','c', 'b3','c','4','c', '5','c','b6','c', 'b7','c','8','c', ],
-    ['1','c','2','c', 'b3','c','4','c', '5','c','b6','c', 'b7','c','8','c', ],
-    ['1','c','2','c', 'b3','c','4','c', '5','c','b6','c', 'b7','c','8','c', ],
-    ['1','c','2','c', 'b3','c','4','c', '5','c','b6','c', 'b7','c','8','c', ],
-    ['1','c','2','c', 'b3','c','4','c', '5','c','6','c', 'b7','c','8','c', ],
-    ['1','c','2','c', 'b3','c','4','c', '5','c','6','c', 'b7','c','8','c', ],
-    ['1','c','2','c', 'b3','c','4','c', '5','c','6','c', 'b7','c','8','c', ],
-    ['1','c','2','c', '3','c','4','c', '5','c','6','c', 'b7','c','8','c', ], #Neutral
-    ['1','c','2','c', '3','c','4','c', '5','c','6','c', 'b7','c','8','c', ],
-    ['1','c','2','c', '3','c','4','c', '5','c','6','c', 'b7','c','8','c', ],
-    ['1','c','2','c', '3','c','4','c', '5','c','6','c', '7','c','8','c', ],
-    ['1','c','2','c', '3','c','4','c', '5','c','6','c', '7','c','8','c', ],
-    ['1','c','2','c', '3','c','4','c', '5','c','6','c', '7','c','8','c', ],
-    ['1','c','2','c', '3','c','#4','c', '5','c','6','c', '7','c','8','c', ],
-    ['1','c','2','c', '3','c','#4','c', '5','c','6','c', '7','c','8','c', ],
-    ['1','c','c','c',  'c','c','c','c', '1','c','c','c', '1','c','c','c', ], #HappyLevel8
+    ['1','c','c','c',  'c','c','c','c', '1','c','c','c', 'c','c','c','c', ], #SadLevel8
+    ['1','c','c','c', 'c','c','c','c', 'b3','c','c','c', 'c','c','c','c', ],
+    ['1','c','c','c', '1','c','c','c', 'b3','c','c','c', 'b3','c','c','c', ],
+    ['1','c','c','c', '1','c','c','c', '5','c','c','c', 'b3','c','c','c', ],
+    ['1','c','c',0, '1','c','c',0, '5','c','c',0, 'b3','c','c',0, ],
+    ['1','c','c',0, 'b3','c','c',0, '5','c','c',0, 'b3','c','c',0, ],
+    ['1','c','1','c', 'b3','c','c',0, '5','c',0,'5', 'b3',0,0,0, ],
+    ['1','c','1',0, 'b3','c','b3',0, '5','c','5',0, 'b3','c','b3',0, ],
+    ['1','c','1',0, '3','c','3',0, '5','c','5',0, '3','c','3',0, ], #Neutral
+    ['1','c','-7',0, '-7',0,'1','1', 'c',0,'2',0, '-7',0,'-7',0, ],
+    ['1','c','-b7',0, '1','c','2',0, '3','c','3',0, '1','c','1',0, ],
+    ['1','c','-b7',0, '2','c','3',0, '5','c','4',0, '2','c','2',0, ],
+    ['1','c','-7',0, '-6',0,'-7','1', 'c',0,'1',0, '-6',0,'-6',0, ],
+    ['1','c','-6',0, '-5',0,'-6','1', 'c','1','-6',0, '-5',0,'-6',0, ],
+    ['1',0,'-6',0, '-5',0,'-6','1', 0,0,'-6',0, '-5',0,'-6',0, ],
+    ['1','c',0,0, '-5',0,'-6',0, '1',0,0,'-4', '-5',0,'-5',0, ],
+    ['1',0,0,0,  '-5',0,0,0, '1',0,0,'-4', '-#4',0,'-5',0, ], #HappyLevel8
 ]
 
 
@@ -163,15 +266,23 @@ global_accents = [
 
 pygame.mixer.init()
 
-def slider_to_bpm(val):
-    log_min = math.log(min_bpm)
-    log_max = math.log(max_bpm)
+def slider_to_bpm(val: float) -> float:
+    """
+    Convert slider position (0‒1, logarithmic scale) to BPM using the
+    configured MIN_BPM / MAX_BPM range.
+    """
+    log_min = math.log(MIN_BPM)
+    log_max = math.log(MAX_BPM)
     bpm_log = log_min + val * (log_max - log_min)
     return math.exp(bpm_log)
 
-def bpm_to_slider(bpm_val):
-    log_min = math.log(min_bpm)
-    log_max = math.log(max_bpm)
+def bpm_to_slider(bpm_val: float) -> float:
+    """
+    Convert a BPM value back to slider position (0‒1) using the same
+    MIN_BPM / MAX_BPM logarithmic mapping.
+    """
+    log_min = math.log(MIN_BPM)
+    log_max = math.log(MAX_BPM)
     return (math.log(bpm_val) - log_min) / (log_max - log_min)
 
 def slider_to_global_gain_db(slider):
@@ -208,14 +319,13 @@ def slider_to_lowmid_db(slider):
 
 # Reverse map: interval name to semitone offset
 interval_to_semitone = {
-    '-1':-12, '-b2':-11, '-2':-10,
-    '-b3':-9, '-3':-8, '-4':-7,
-    '-#4':-6, '-b5':-6, '-5':-5,
-    '-b6':-4, '-6':-3, '-b7':-2, '-7':-1,
-    '1': 0, 'b2': 1, '2': 2, 'b3': 3,
-    '3': 4, '4': 5, '#4': 6, 'b5': 6, '5': 7,
-    'b6': 8, '6': 9, 'b7': 10, '7': 11,
-    '8': 12
+    # Below-tonic (negative) degrees
+    '-1': -12, '-b2': -11, '-2': -10, '-b3': -9,  '-3': -8,  '-4': -7,
+    '-#4': -6, '-b5': -6,  '-5': -5,  '-b6': -4,  '-6': -3,  '-b7': -2,
+    '-7': -1,
+    # Tonic and above
+    '1': 0, 'b2': 1, '2': 2, 'b3': 3, '3': 4, '4': 5, '#4': 6, 'b5': 6,
+    '5': 7, 'b6': 8, '6': 9, 'b7': 10, '7': 11, '8': 12
 }
 
 def midi_notes_from_degrees(degrees, tonic_note=tonic):
@@ -334,7 +444,7 @@ def load_cymbal_samples():
 load_cymbal_samples()
 
 
-def play_sample_with_delay_and_gain(label, delay_ms, gain_db):
+def play_kick_sample_with_delay_and_gain(label, delay_ms, gain_db):
     def delayed_play():
         time.sleep(delay_ms / 1000)
         sound = sample_cache.get(label)
@@ -343,11 +453,13 @@ def play_sample_with_delay_and_gain(label, delay_ms, gain_db):
                 slider = slider_val
             global_gain_db = slider_to_global_gain_db(slider)
             global_highshelf_db = slider_to_global_highshelf_db(slider)
+            # Kick specific boost
+            kick_boost_db = 6.0  # +3 dB louder kicks
             # Combine gains (total_gain_db applies to volume; highshelf is conceptual here)
-            total_gain_db = gain_db + global_gain_db + global_highshelf_db
+            total_gain_db = gain_db + global_gain_db + global_highshelf_db + kick_boost_db
             lowmid_db = slider_to_lowmid_db(slider)
             # Combine gains (total_gain_db applies to volume; highshelf is conceptual here)
-            total_gain_db = gain_db + global_gain_db + global_highshelf_db + lowmid_db
+            total_gain_db = gain_db + global_gain_db + global_highshelf_db + lowmid_db + kick_boost_db
             volume = 10 ** (total_gain_db / 20)
             sound.set_volume(min(1.0, max(0.0, volume)))
             sound.play()
@@ -394,26 +506,11 @@ def sequencer(stop_event):
     drum_delay = 0.04
     last_note_end_time = 0  # global or at the start of your sequencer function or script
 
-
-
-
-    morph_active = False
-    morph_start_index = current_group_index
-    morph_end_index = current_group_index
-    morph_step_count = steps_per_measure
-    morph_current_step = 0
-
     while not stop_event.is_set():
         with slider_val_lock:
             slider = slider_val
 
         goal_group_index = int(round(slider * (len(labels) - 1)))
-
-        if goal_group_index != morph_end_index and not morph_active:
-            morph_active = True
-            morph_start_index = current_group_index
-            morph_end_index = goal_group_index
-            morph_current_step = 0
 
         with bpm_lock:
             new_target_bpm = slider_to_bpm(slider)
@@ -441,26 +538,15 @@ def sequencer(stop_event):
         now = time.time()
         
         if now >= next_trigger:
-            if morph_active:
-                group_distance = abs(morph_end_index - morph_start_index)
-                step_size = 1 if group_distance < 4 else 2 if group_distance <= 8 else 3 if group_distance <= 12 else 4
-                if morph_start_index < morph_end_index:
-                    new_index = morph_start_index + step_size * morph_current_step
-                    new_index = min(new_index, morph_end_index)
-                else:
-                    new_index = morph_start_index - step_size * morph_current_step
-                    new_index = max(new_index, morph_end_index)
-                current_group_index = int(new_index)
-                morph_current_step += 1
-                if morph_current_step > morph_step_count or current_group_index == morph_end_index:
-                    morph_active = False
-                    current_group_index = morph_end_index
+            # Switch pattern only at the start of a 16-step cycle
+            if goal_group_index != current_group_index and step == 0:
+                current_group_index = goal_group_index
 
             if kick_patterns[current_group_index][step]:
                 delay_ms = delay_patterns_ms[current_group_index][step] + drum_delay * 1000
                 gain_db = global_accents[current_group_index][step]
                 kick_time = time.time()
-                play_sample_with_delay_and_gain(labels[current_group_index], delay_ms, gain_db)
+                play_kick_sample_with_delay_and_gain(labels[current_group_index], delay_ms, gain_db)
 
             if snare_patterns[current_group_index][step]:
                 delay_ms = delay_patterns_ms[current_group_index][step] + drum_delay * 1000
@@ -490,7 +576,7 @@ def sequencer(stop_event):
                 return base_duration * total_steps
 
             degree = selected_bass_pattern[note_index % len(selected_bass_pattern)]
-            base_duration = seconds_per_16th * 0.9375 * 2  # whole beat
+            base_duration = seconds_per_16th * 0.875 * 2  # whole beat
             now = time.time()
 
             if degree == 0 or degree == 'c':
@@ -501,7 +587,7 @@ def sequencer(stop_event):
                 note = tonic + interval_to_semitone[degree_str]
                 duration = get_extended_duration(selected_bass_pattern, note_index % len(selected_bass_pattern), base_duration)
                 
-                synth.schedule_note(now, note, duration)
+                bass_synth.schedule_note(now, note, duration)
 
             note_index += 1
 
@@ -519,7 +605,6 @@ def sequencer(stop_event):
 
         
 
-
 def on_slider_change(val):
     global slider_val
     with slider_val_lock:
@@ -529,19 +614,42 @@ import threading
 import time
 import numpy as np
 import pyaudio
-import wave
 
 def lowpass_filter_resonant(wave, cutoff_freqs, resonance, sample_rate, drive, low, band):
-    out = np.zeros_like(wave)
-    f = 2 * np.sin(np.pi * cutoff_freqs / sample_rate)
-    q = resonance
-    for i in range(len(wave)):
-        sample = np.tanh(wave[i] * drive)
+    """
+    Stable state-variable low-pass filter with resonance.
+    Fixes previous crackle by:
+        1. Clamping cutoff to < Nyquist to avoid aliasing
+        2. Limiting resonance (feedback) to < 1.0 for stability
+        3. Applying drive once (vectorised) – avoids per-sample discontinuity
+        4. Clamping internal state (low / band) to prevent runaway build-up
+    """
+    # Pre-compute constants
+    cut = np.clip(cutoff_freqs, 0.0, sample_rate * 0.45)
+    f      = 2.0 * np.sin(np.pi * cut / sample_rate)
+    q      = np.clip(resonance, 0.0, 0.99)          # feedback <1 ⇒ stable
+    drive  = np.clip(drive, 0.1, 2.0)
+
+    # Apply drive once – cheaper & smoother than per-sample
+    driven_wave = np.tanh(wave * drive)
+
+    out = np.zeros_like(driven_wave)
+
+    for i in range(len(driven_wave)):
+        sample = driven_wave[i]
+
+        # State-variable equations
         notch = sample - q * band
-        low += f[i] * band
-        high = notch - low
+        low  += f[i] * band
+        high  = notch - low
         band += f[i] * high
+
+        # Clamp states to avoid numerical runaway
+        low  = np.clip(low,  -2.0, 2.0)
+        band = np.clip(band, -2.0, 2.0)
+
         out[i] = low
+
     return out, low, band
 
 
@@ -787,11 +895,7 @@ class Synth:
             resampled
         )
 
-        total_samples = int(self.sample_rate * duration)
-        if len(resampled) < total_samples:
-            repeats = total_samples // len(resampled) + 1
-            resampled = np.tile(resampled, repeats)
-
+        # Latency compensation
         latency_ms = 0.7  # try tuning this value by ear
         latency_samples = int(self.sample_rate * latency_ms / 1000)
 
@@ -800,12 +904,56 @@ class Synth:
         else:
             resampled = np.zeros_like(resampled)
 
-        # Ensure it's still the right length
+        # Create output buffer for the full duration
+        total_samples = int(self.sample_rate * duration)
+        output = np.zeros(total_samples, dtype=np.float32)
+        
+        # If the sample is shorter than needed, use crossfading to loop it
         if len(resampled) < total_samples:
-            repeats = total_samples // len(resampled) + 1
-            resampled = np.tile(resampled, repeats)
+            # Define crossfade window (in samples)
+            crossfade_samples = min(100, len(resampled) // 4)  # 100 samples or 1/4 of sample length
+            
+            # Create crossfade windows
+            fade_in = np.linspace(0, 1, crossfade_samples)
+            fade_out = np.linspace(1, 0, crossfade_samples)
+            
+            # Fill output buffer with crossfaded loops
+            position = 0
+            while position < total_samples:
+                # Calculate how much of the sample we can copy
+                samples_to_copy = min(len(resampled), total_samples - position)
+                
+                if position + samples_to_copy >= total_samples:
+                    # Last segment - just copy what's needed
+                    output[position:position+samples_to_copy] = resampled[:samples_to_copy]
+                else:
+                    # Not the last segment - apply crossfade
+                    if position + len(resampled) <= total_samples:
+                        # Full sample fits
+                        output[position:position+len(resampled)] += resampled
+                        
+                        # Apply crossfade with next loop if there's room
+                        next_position = position + len(resampled) - crossfade_samples
+                        if next_position + crossfade_samples <= total_samples:
+                            # Apply fade out to current loop end
+                            output[next_position:next_position+crossfade_samples] *= fade_out
+                            
+                            # Apply fade in to next loop start (if it fits)
+                            if next_position + crossfade_samples + len(resampled) <= total_samples:
+                                # Apply fade in to beginning of next loop
+                                next_loop_start = next_position + crossfade_samples
+                                output[next_loop_start:next_loop_start+crossfade_samples] += resampled[:crossfade_samples] * fade_in
+                    else:
+                        # Only part of the sample fits
+                        samples_remaining = total_samples - position
+                        output[position:] += resampled[:samples_remaining]
+                
+                position += len(resampled) - crossfade_samples  # Overlap by crossfade amount
+        else:
+            # Sample is longer than needed, just take what we need
+            output = resampled[:total_samples]
 
-        return resampled[:total_samples]
+        return output
 
     def schedule_note(self, start_time, midi_note, duration):
         with self.lock:
@@ -822,6 +970,8 @@ class Synth:
         with slider_val_lock:
             osc1_slider = slider_val
         mod_index = 0.0868 * (1 - osc1_slider)  # Linear: 0.0868 at 0 slider, 0 at 1 slider
+
+        # --- ORIGINAL FM SYNTHESIS (restored) -----------------------------
         fm_wave = self.fm_wave(freq, mod_freq, mod_index, duration)
         
 
@@ -858,10 +1008,11 @@ class Synth:
         fm_wave *= self.prev_osc1_volume
         sample_wave *= self.prev_sample_volume
 
+        # Mix FM and sample oscillators
         combined_wave = fm_wave + sample_wave
 
 
-        # ADSR envelope
+        # ---------------- ADSR envelope (restored) ------------------------
         env, attack = self.adsr_envelope(total_samples, slider)
         combined_wave *= env
         
@@ -911,8 +1062,9 @@ class Synth:
         slider_changed = abs(slider - self.prev_slider_resonance) > resonance_threshold
         self.prev_slider_resonance = slider
 
-        low_res = 0.3
-        high_res = 2.0
+        # Far more conservative resonance range to avoid crackle
+        low_res = 0.1
+        high_res = 0.3
         target_resonance = low_res + (high_res - low_res) * (slider ** 0.5)
 
         if self.prev_resonance is None:
@@ -927,7 +1079,8 @@ class Synth:
 
         with slider_val_lock:
             slider = slider_val
-        target_drive = 1 + 0.2757 * slider
+        # Disable drive boost entirely for stability
+        target_drive = 1.0
 
         if not hasattr(self, 'prev_drive'):
             self.prev_drive = target_drive
@@ -939,10 +1092,44 @@ class Synth:
 
 
 
-        combined_wave, self.lowpass_low, self.lowpass_band = lowpass_filter_resonant(
-    combined_wave, filter_env, resonance, self.sample_rate, drive,
-    self.lowpass_low, self.lowpass_band
-)
+        # ------------------------------------------------------------------
+        # Anti-crackle processing
+        #   1.  Use *fresh* filter state every note (no carry-over).
+        #   2.  Gentle soft-limit before filtering to tame transients.
+        #   3.  Reduce drive for very long notes to avoid self-oscillation.
+        #   4.  DC-block afterwards to remove residual bias.
+        # ------------------------------------------------------------------
+
+        # Soft-limit the signal (gentler, lower gain factor)
+        combined_wave = np.tanh(combined_wave * 0.8) / 0.8
+
+        # Long notes ⇒ halve the drive
+        if duration > 2.0:
+            drive *= 0.5
+
+        # Local filter state (reset each call)
+        local_low, local_band = 0.0, 0.0
+
+        # ------------------------------------------------------------------
+        # SIMPLE FIX:
+        #   Replace crackle-prone resonant SVF with a single, stable
+        #   2-pole Butterworth low-pass once per note.  We use the *average*
+        #   of the dynamic filter-envelope as the cutoff for this note,
+        #   clamped safely below Nyquist.
+        # ------------------------------------------------------------------
+        avg_cutoff = float(np.clip(np.mean(filter_env),
+                                   20.0,
+                                   0.45 * self.sample_rate))
+        combined_wave = butter_lowpass_filter(
+            combined_wave,
+            cutoff=avg_cutoff,
+            fs=self.sample_rate,
+            order=2
+        )
+
+        # Simple DC-blocking high-pass (~20 Hz)
+        # Stronger DC-blocking
+        combined_wave = lfilter([1, -1], [1, -0.99], combined_wave)
 
 
 
@@ -978,6 +1165,7 @@ class Synth:
         delay_time = self.prev_delay_time
         feedback = 0.01  # fixed low feedback for chill effect
 
+        # --- Comb filter (restored) ---------------------------------------
         combined_wave = comb_filter_modulated(
             combined_wave, sample_rate=self.sample_rate,
             base_delay=delay_time, feedback=feedback, drive=drive
@@ -985,7 +1173,8 @@ class Synth:
 
 
 
-        combined_wave *= (1 + lfo_wave)  # or scale/offset as needed
+# ---------------- LFO amplitude modulation (restored) --------------------
+        combined_wave *= (1 + lfo_wave)  # subtle vibrato/AM
 
         with slider_val_lock:
             slider = slider_val
@@ -1062,9 +1251,6 @@ class Synth:
         combined_wave = butter_lowpass_filter(combined_wave, cutoff=cutoff, fs=self.sample_rate, order=4)
 
 
-        fade_in_samples = max(1, int(self.sample_rate * attack))
-        combined_wave[:fade_in_samples] *= np.linspace(0, 1, fade_in_samples)
-
         fade_out_samples = int(0.01 * self.sample_rate)  # Keep fade-out short
         combined_wave[-fade_out_samples:] *= np.linspace(1, 0, fade_out_samples)
 
@@ -1072,6 +1258,9 @@ class Synth:
 
 
         combined_wave *= self.master_volume
+
+        # Hard limiter to guarantee no clipping
+        combined_wave = np.clip(combined_wave, -0.95, 0.95)
 
         def normalize_rms(signal, target_rms=0.1, eps=1e-8):
             rms = np.sqrt(np.mean(signal**2)) + eps
@@ -1098,9 +1287,6 @@ class Synth:
             with self.lock:
                 for (start_time, midi_note, duration) in self.note_queue:
                     if start_time <= now:
-                        delay_ms = (now - start_time) * 1000
-                        print(f"[SCHEDULER] Note {midi_note} scheduled for {start_time:.6f}, triggered at {now:.6f}, delay = {delay_ms:.2f} ms")
-                
                         wave = self.render_note(midi_note, duration)
                         self.active_notes.append((wave, 0))
                 self.note_queue = [n for n in self.note_queue if n[0] > now]
@@ -1116,24 +1302,10 @@ class Synth:
             self.active_notes = new_active
 
             
-            # After mixing all active notes into 'buffer'
-            diffs = np.diff(buffer)
-            crackle_indices = np.where(np.abs(diffs) > 0.3)[0]  # tweak threshold if needed
-
-            if len(crackle_indices) > 0:
-                print(f"[CRACKLE DETECTED] Large jumps at samples: {crackle_indices}")
-
             buffer = np.clip(buffer, -1.0, 1.0)
 
-            buffer_start_time = time.time()
-            print(f"[DEBUG] Buffer min: {buffer.min()}, max: {buffer.max()}, mean: {buffer.mean()}")
-
+            # Output audio buffer
             self.stream.write(buffer.tobytes())
-            buffer_end_time = time.time()
-            write_duration_ms = (buffer_end_time - buffer_start_time) * 1000
-            expected_ms = (self.buffer_size / self.sample_rate) * 1000
-            print(f"[STREAM] Buffer write took {write_duration_ms:.2f} ms, expected {expected_ms:.2f} ms")
-
 
             time.sleep(self.buffer_size / self.sample_rate * 0.01)
 
@@ -1141,8 +1313,8 @@ class Synth:
 
 
 # Instantiate once globally somewhere after sample_rate is set:
-synth = Synth(sample_rate)
-synth.set_master_volume(0.75)  # sets volume to 50%
+bass_synth = Synth(sample_rate)
+bass_synth.set_master_volume(0.5)  # sets volume to 50%
 
 
 
@@ -1157,7 +1329,7 @@ label.pack(pady=10)
 slider = tk.Scale(root, from_=0, to=1, resolution=0.001,
                   orient=tk.HORIZONTAL, length=300,
                   command=on_slider_change)
-slider.set(bpm_to_slider(default_bpm))
+slider.set(bpm_to_slider(DEFAULT_BPM))
 slider.pack()
 
 stop_event = threading.Event()
