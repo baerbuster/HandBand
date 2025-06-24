@@ -80,6 +80,15 @@ GLOBAL_GAIN_DB_RANGE = 5.0      # ±5dB range for global gain
 HIGHSHELF_DB_RANGE = 2.0        # ±2dB range for high shelf
 LOWMID_DB_RANGE = 1.0           # ±1dB range for low-mid
 
+# ---------------------------------------------------------------------------
+# Global EQ Settings – actual filter parameters
+# ---------------------------------------------------------------------------
+# (These are used by the new bi-quad EQ helpers further below)
+HIGHSHELF_FREQ_HZ     = 3000     # High-shelf starts at 3 kHz
+HIGHSHELF_SLOPE_DB_OCT = 12      # 12 dB/oct ≈ 2-pole “gentle” shelf
+LOWMID_CENTER_FREQ_HZ = 300      # Low-mid peaking-EQ centre
+LOWMID_Q_FACTOR       = 2.0      # Q factor (bandwidth) for low-mid band
+
 # Smoothing Factors
 PARAMETER_SMOOTHING = 0.005     # How fast parameters change (0.001-0.1)
 VOLUME_SMOOTHING = 0.5          # Volume crossfade speed
@@ -109,6 +118,119 @@ PATTERN_LABELS = [
     "HappyLevel5", "HappyLevel6", "HappyLevel7", "HappyLevel8"
 ]
 
+# ---------------------------------------------------------------------------
+# PATTERN MATRICES – EDIT THESE TO CHANGE THE MUSICAL PATTERNS
+# Each pattern is 16 steps (4 beats of 16-th notes).  The list index of every
+# matrix aligns with PATTERN_LABELS order (SadLevel8 → HappyLevel8).
+# ---------------------------------------------------------------------------
+
+# Kick drum patterns (1 = kick, 0 = silence)
+KICK_PATTERNS = [
+    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],  # SadLevel8
+    [1,0,1,0, 0,0,0,0, 1,0,0,0, 1,0,0,0],  # SadLevel7
+    [1,0,0,0, 1,0,0,0, 1,0,0,1, 0,0,0,0],  # SadLevel6
+    [1,0,0,0, 1,0,0,0, 1,0,1,0, 0,0,0,0],  # SadLevel5
+    [1,0,1,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],  # SadLevel4
+    [1,0,0,1, 0,0,0,0, 1,0,1,0, 0,0,0,0],  # SadLevel3
+    [1,0,1,0, 0,0,0,0, 1,0,0,1, 0,0,0,0],  # SadLevel2
+    [1,0,0,0, 0,0,0,0, 1,0,1,0, 0,0,0,0],  # SadLevel1
+    [1,0,0,0, 0,0,0,0, 1,0,1,0, 0,0,0,0],  # Neutral
+    [1,0,0,0, 0,0,0,0, 1,0,1,0, 0,0,0,0],  # HappyLevel1
+    [1,0,0,0, 0,0,0,0, 1,0,1,0, 1,0,0,0],  # HappyLevel2
+    [1,0,0,0, 1,0,0,0, 1,0,1,0, 1,0,0,0],  # HappyLevel3
+    [1,0,0,0, 1,0,0,0, 1,0,0,1, 1,0,0,0],  # HappyLevel4
+    [1,0,1,0, 1,0,0,0, 1,0,0,1, 1,0,0,0],  # HappyLevel5
+    [1,0,1,0, 1,0,1,0, 1,0,0,1, 1,0,0,0],  # HappyLevel6
+    [1,0,1,0, 1,0,1,0, 1,0,0,1, 1,0,1,0],  # HappyLevel7
+    [1,0,1,1, 1,0,1,0, 1,0,0,1, 1,0,1,0],  # HappyLevel8
+]
+
+SNARE_PATTERNS = [
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ], #SadLevel8
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ], #Neutral
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,1,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,1,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,1,0,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,1,0, 0,0,0,0, 1,0,0,0, ],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1, ], #HappyLevel8
+]
+
+CYMBAL_PATTERNS = [
+    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, ], #SadLevel8
+    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, ],
+    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, ],
+    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, ],
+    [1,0,1,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, ],
+    [1,0,1,0, 1,0,1,0, 1,0,0,0, 1,0,0,0, ],
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,0,0, ],
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ],
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ], #Neutral
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ],
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ],
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ],
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ],
+    [1,0,1,0, 0,0,1,0, 1,0,1,0, 1,0,1,0, ],
+    [1,0,1,0, 0,0,1,0, 0,0,1,0, 1,0,1,0, ],
+    [1,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, ],
+    [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, ], #HappyLevel8
+]
+
+DRUM_ACCENT_PATTERNS = [
+    [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  # SadLevel8
+    [0.03, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  # SadLevel7
+    [0.09, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  # SadLevel6
+    [0.19, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  # SadLevel5
+    [0.34, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  # SadLevel4
+    [0.56, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  # SadLevel3
+    [0.90, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  # SadLevel2
+    [1.39, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  # SadLevel1
+    [2.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  # Neutral
+    [1.39, 0.00, 0.00, 0.00, 0.50, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.50, 0.00, 0.00, 0.00],  # HappyLevel1
+    [0.90, 0.00, 0.00, 0.00, 0.75, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.75, 0.00, 0.00, 0.00],  # HappyLevel2
+    [0.56, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00],  # HappyLevel3
+    [0.34, 0.00, 0.00, 0.00, 1.25, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.25, 0.00, 0.00, 0.00],  # HappyLevel4
+    [0.19, 0.00, 0.00, 0.00, 1.50, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.50, 0.00, 0.00, 0.00],  # HappyLevel5
+    [0.09, 0.00, 0.00, 0.00, 1.75, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.75, 0.00, 0.00, 0.00],  # HappyLevel6
+    [0.03, 0.00, 0.00, 0.00, 1.90, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.90, 0.00, 0.00, 0.00],  # HappyLevel7
+    [0.00, 0.00, 0.00, 0.00, 2.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 2.00, 0.00, 0.00, 0.00],  # HappyLevel8
+]
+
+BASS_PATTERNS = [
+    ['1','c','c','c',  'c','c','c','c', '1','c','c','c', 'c','c','c','c', ], #SadLevel8
+    ['1','c','c','c', 'c','c','c','c', 'b3','c','c','c', 'c','c','c','c', ],
+    ['1','c','c','c', '1','c','c','c', 'b3','c','c','c', 'b3','c','c','c', ],
+    ['1','c','c','c', '1','c','c','c', '5','c','c','c', 'b3','c','c','c', ],
+    ['1','c','c',0, '1','c','c',0, '5','c','c',0, 'b3','c','c',0, ],
+    ['1','c','c',0, 'b3','c','c',0, '5','c','c',0, 'b3','c','c',0, ],
+    ['1','c','1','c', 'b3','c','c',0, '5','c',0,'5', 'b3',0,0,0, ],
+    ['1','c','1',0, 'b3','c','b3',0, '5','c','5',0, 'b3','c','b3',0, ],
+    ['1','c','1',0, '3','c','3',0, '5','c','5',0, '3','c','3',0, ], #Neutral
+    ['1','c','-7',0, '-7',0,'1','1', 'c',0,'2',0, '-7',0,'-7',0, ],
+    ['1','c','-b7',0, '1','c','2',0, '3','c','3',0, '1','c','1',0, ],
+    ['1','c','-b7',0, '2','c','3',0, '5','c','4',0, '2','c','2',0, ],
+    ['1','c','-7',0, '-6',0,'-7','1', 'c',0,'1',0, '-6',0,'-6',0, ],
+    ['1','c','-6',0, '-5',0,'-6','1', 'c','1','-6',0, '-5',0,'-6',0, ],
+    ['1',0,'-6',0, '-5',0,'-6','1', 0,0,'-6',0, '-5',0,'-6',0, ],
+    ['1','c',0,0, '-5',0,'-6',0, '1',0,0,'-4', '-5',0,'-5',0, ],
+    ['1',0,0,0,  '-5',0,0,0, '1',0,0,'-4', '-#4',0,'-5',0, ], #HappyLevel8
+]
+
+## DELAY PATTERN SETTINGS
+# Base delay amounts in milliseconds for sad patterns (SadLevel8 → SadLevel1)
+DELAY_BASE_SAD_MS = [100, 79, 63, 50, 40, 32, 25, 0]
+# Happy delays are calculated as: sad_delay * DELAY_HAPPY_FACTOR
+DELAY_HAPPY_FACTOR = 0.25
+
 # ============================================================================
 # END CONFIGURATION SECTION
 # ============================================================================
@@ -137,139 +259,52 @@ target_bpm:      float | None = DEFAULT_BPM
 ramp_start_time: float | None = None
 ramp_duration:   float | None = None
 
-# <UNUSED?> note_duration not referenced elsewhere; kept for future use
-note_duration: float = 60 / current_bpm   # noqa: F841
-
-# Kick trigger patterns for each slider level (label)
-kick_patterns = [
-    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],  # SadLevel8
-    [1,0,1,0, 0,0,0,0, 1,0,0,0, 1,0,0,0],  # SadLevel7
-    [1,0,0,0, 1,0,0,0, 1,0,0,1, 0,0,0,0],  # SadLevel6
-    [1,0,0,0, 1,0,0,0, 1,0,1,0, 0,0,0,0],  # SadLevel5
-    [1,0,1,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],  # SadLevel4
-    [1,0,0,1, 0,0,0,0, 1,0,1,0, 0,0,0,0],  # SadLevel3
-    [1,0,1,0, 0,0,0,0, 1,0,0,1, 0,0,0,0],  # SadLevel2
-    [1,0,0,0, 0,0,0,0, 1,0,1,0, 0,0,0,0],  # SadLevel1
-    [1,0,0,0, 0,0,0,0, 1,0,1,0, 0,0,0,0],  # Neutral
-    [1,0,0,0, 0,0,0,0, 1,0,1,0, 0,0,0,0],  # HappyLevel1
-    [1,0,0,0, 0,0,0,0, 1,0,1,0, 1,0,0,0],  # HappyLevel2
-    [1,0,0,0, 1,0,0,0, 1,0,1,0, 1,0,0,0],  # HappyLevel3
-    [1,0,0,0, 1,0,0,0, 1,0,0,1, 1,0,0,0],  # HappyLevel4
-    [1,0,1,0, 1,0,0,0, 1,0,0,1, 1,0,0,0],  # HappyLevel5
-    [1,0,1,0, 1,0,1,0, 1,0,0,1, 1,0,0,0],  # HappyLevel6
-    [1,0,1,0, 1,0,1,0, 1,0,0,1, 1,0,1,0],  # HappyLevel7
-    [1,0,1,1, 1,0,1,0, 1,0,0,1, 1,0,1,0],  # HappyLevel8
-]
-
-snare_patterns = [
-    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ], #SadLevel8
-    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
-    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
-    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
-    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
-    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
-    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
-    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
-    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ], #Neutral
-    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
-    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
-    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, ],
-    [0,0,0,0, 1,0,0,0, 0,0,1,0, 1,0,0,0, ],
-    [0,0,0,0, 1,0,0,0, 0,1,0,0, 1,0,0,0, ],
-    [0,0,0,0, 1,1,0,0, 0,0,0,0, 1,0,0,0, ],
-    [0,0,0,0, 1,0,1,0, 0,0,0,0, 1,0,0,0, ],
-    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1, ], #HappyLevel8
-]
-
-cymbal_patterns = [
-    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, ], #SadLevel8
-    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, ],
-    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, ],
-    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, ],
-    [1,0,1,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, ],
-    [1,0,1,0, 1,0,1,0, 1,0,0,0, 1,0,0,0, ],
-    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,0,0, ],
-    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ],
-    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ], #Neutral
-    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ],
-    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ],
-    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ],
-    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, ],
-    [1,0,1,0, 0,0,1,0, 1,0,1,0, 1,0,1,0, ],
-    [1,0,1,0, 0,0,1,0, 0,0,1,0, 1,0,1,0, ],
-    [1,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, ],
-    [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, ], #HappyLevel8
-]
-
-bass_patterns = [
-    ['1','c','c','c',  'c','c','c','c', '1','c','c','c', 'c','c','c','c', ], #SadLevel8
-    ['1','c','c','c', 'c','c','c','c', 'b3','c','c','c', 'c','c','c','c', ],
-    ['1','c','c','c', '1','c','c','c', 'b3','c','c','c', 'b3','c','c','c', ],
-    ['1','c','c','c', '1','c','c','c', '5','c','c','c', 'b3','c','c','c', ],
-    ['1','c','c',0, '1','c','c',0, '5','c','c',0, 'b3','c','c',0, ],
-    ['1','c','c',0, 'b3','c','c',0, '5','c','c',0, 'b3','c','c',0, ],
-    ['1','c','1','c', 'b3','c','c',0, '5','c',0,'5', 'b3',0,0,0, ],
-    ['1','c','1',0, 'b3','c','b3',0, '5','c','5',0, 'b3','c','b3',0, ],
-    ['1','c','1',0, '3','c','3',0, '5','c','5',0, '3','c','3',0, ], #Neutral
-    ['1','c','-7',0, '-7',0,'1','1', 'c',0,'2',0, '-7',0,'-7',0, ],
-    ['1','c','-b7',0, '1','c','2',0, '3','c','3',0, '1','c','1',0, ],
-    ['1','c','-b7',0, '2','c','3',0, '5','c','4',0, '2','c','2',0, ],
-    ['1','c','-7',0, '-6',0,'-7','1', 'c',0,'1',0, '-6',0,'-6',0, ],
-    ['1','c','-6',0, '-5',0,'-6','1', 'c','1','-6',0, '-5',0,'-6',0, ],
-    ['1',0,'-6',0, '-5',0,'-6','1', 0,0,'-6',0, '-5',0,'-6',0, ],
-    ['1','c',0,0, '-5',0,'-6',0, '1',0,0,'-4', '-5',0,'-5',0, ],
-    ['1',0,0,0,  '-5',0,0,0, '1',0,0,'-4', '-#4',0,'-5',0, ], #HappyLevel8
-]
-
-
 # Delay patterns
-# Delay patterns
+# ---------------
 delay_patterns_ms = []
-base_sad = [100, 79, 63, 50, 40, 32, 25, 0]  # 8 sad levels
 
 # 1) Sad delays (levels 8→1)
-for d in base_sad:
+for d in DELAY_BASE_SAD_MS:
     delay_patterns_ms.append([0]*4 + [d]*12)
 
 # 2) Neutral (level 0)
 delay_patterns_ms.append([0]*16)
 
 # 3) Happy delays (levels 1→8)
-happy = [int(0.25 * d) for d in reversed(base_sad)]
+happy = [int(DELAY_HAPPY_FACTOR * d) for d in reversed(DELAY_BASE_SAD_MS)]
 for d in happy:
     pattern = [0]*16
-    for i in [1,3,5,7,9,11,13,15]:
+    for i in [1,3,5,7,9,11,13,15]: #Only on 2 and 4 of each measure
         pattern[i] = d
     delay_patterns_ms.append(pattern)
 
-
-# Global accent matrix (gain in dB)
-global_accents = [
-    [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  # SadLevel8
-    [0.03, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],
-    [0.09, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],
-    [0.19, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],
-    [0.34, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],
-    [0.56, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],
-    [0.90, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],
-    [1.39, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],
-    [2.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],  # Neutral first beat = 2.0
-    [1.39, 0.00, 0.00, 0.00, 0.50, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.50, 0.00, 0.00, 0.00],
-    [0.90, 0.00, 0.00, 0.00, 0.75, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.75, 0.00, 0.00, 0.00],
-    [0.56, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00],
-    [0.34, 0.00, 0.00, 0.00, 1.25, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.25, 0.00, 0.00, 0.00],
-    [0.19, 0.00, 0.00, 0.00, 1.50, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.50, 0.00, 0.00, 0.00],
-    [0.09, 0.00, 0.00, 0.00, 1.75, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.75, 0.00, 0.00, 0.00],
-    [0.03, 0.00, 0.00, 0.00, 1.90, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.90, 0.00, 0.00, 0.00],
-    [0.00, 0.00, 0.00, 0.00, 2.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 2.00, 0.00, 0.00, 0.00],  # HappyLevel8 first beat = 0.0
+# Slider Level Labels
+labels = [
+    "SadLevel8", "SadLevel7", "SadLevel6", "SadLevel5",
+    "SadLevel4", "SadLevel3", "SadLevel2", "SadLevel1",
+    "Neutral",
+    "HappyLevel1", "HappyLevel2", "HappyLevel3",
+    "HappyLevel4", "HappyLevel5", "HappyLevel6",
+    "HappyLevel7", "HappyLevel8"
 ]
 
+# ============================================================================
+# AUDIO SYSTEM INITIALIZATION
+# ============================================================================
+# Initialize pygame's audio mixer **before** any pygame.mixer.Sound() calls so
+# that all drum samples can be loaded and played back correctly.
 pygame.mixer.init()
+
+# ============================================================================
+# SLIDER CONVERSION UTILITIES
+# ============================================================================
 
 def slider_to_bpm(val: float) -> float:
     """
-    Convert slider position (0‒1, logarithmic scale) to BPM using the
-    configured MIN_BPM / MAX_BPM range.
+    Convert GUI slider position (0‒1, logarithmic scale) to a BPM value.
+
+    Used continuously while the application is running to translate the
+    user-controlled slider value into an instantaneous BPM target.
     """
     log_min = math.log(MIN_BPM)
     log_max = math.log(MAX_BPM)
@@ -279,45 +314,190 @@ def slider_to_bpm(val: float) -> float:
 def bpm_to_slider(bpm_val: float) -> float:
     """
     Convert a BPM value back to slider position (0‒1) using the same
-    MIN_BPM / MAX_BPM logarithmic mapping.
+    logarithmic mapping as :func:`slider_to_bpm`.
+
+    Currently called once on start-up so the GUI slider initially reflects
+    ``DEFAULT_BPM`` rather than sitting at an arbitrary position.
     """
     log_min = math.log(MIN_BPM)
     log_max = math.log(MAX_BPM)
     return (math.log(bpm_val) - log_min) / (log_max - log_min)
 
+# ============================================================================
+# MASTER AUDIO FUNCTIONS
+# ============================================================================
+
+# Convert slider position (0-1) to global volume adjustment in dB (±5dB range)
 def slider_to_global_gain_db(slider):
-    # Move from -5 dB at slider=0 to 0 dB at slider=0.5 and up to +5 dB at slider=1
+    # Convert slider position to global volume adjustment (±5dB range)
     if slider <= 0.5:
         t = slider / 0.5
-        gain_db = -5 + 5 * (math.log10(1 + 9 * t))
+        gain_db = -GLOBAL_GAIN_DB_RANGE + GLOBAL_GAIN_DB_RANGE * (math.log10(1 + 9 * t))
     else:
         t = (slider - 0.5) / 0.5
-        gain_db = 0 + 5 * (math.log10(1 + 9 * t))
+        gain_db = GLOBAL_GAIN_DB_RANGE * (math.log10(1 + 9 * t))
     return gain_db
 
+# Convert slider position (0-1) to high-shelf EQ boost/cut in dB (±2dB range)
 def slider_to_global_highshelf_db(slider):
-    # -2 dB at 0, 0 dB at 0.5, +2 dB at 1, logarithmic interpolation in between
+    # Convert slider position to high-shelf EQ boost/cut (±2dB range)
     if slider <= 0.5:
         t = slider / 0.5
-        # interpolate logarithmically from -2 to 0 dB
-        gain_db = -2 + 2 * (math.log10(1 + 9 * t))
+        gain_db = -HIGHSHELF_DB_RANGE + HIGHSHELF_DB_RANGE * (math.log10(1 + 9 * t))
     else:
         t = (slider - 0.5) / 0.5
-        # interpolate logarithmically from 0 to +2 dB
-        gain_db = 0 + 2 * (math.log10(1 + 9 * t))
+        gain_db = HIGHSHELF_DB_RANGE * (math.log10(1 + 9 * t))
     return gain_db
 
+# Convert slider position (0-1) to low-mid EQ boost/cut in dB (±1dB range)
 def slider_to_lowmid_db(slider):
-    # -1 dB at 0, 0 dB at 0.5, +1 dB at 1 over 100–200 Hz, logarithmic in between
+    # Convert slider position to low-mid EQ boost/cut (±1dB range)
     if slider <= 0.5:
         t = slider / 0.5
-        gain_db = 1 - (1 * math.log10(1 + 9 * t))
+        gain_db = LOWMID_DB_RANGE - (LOWMID_DB_RANGE * math.log10(1 + 9 * t))
     else:
         t = (slider - 0.5) / 0.5
-        gain_db = 0 - (1 * math.log10(1 + 9 * t))
+        gain_db = -(LOWMID_DB_RANGE * math.log10(1 + 9 * t))
     return gain_db
 
-# Reverse map: interval name to semitone offset
+# Generate biquad coefficients for 2nd-order high-shelf filter (12dB/oct slope)
+def highshelf_biquad_coeffs(freq_hz: float, gain_db: float, fs: int):
+    """
+    Return biquad coefficients for a 2-pole high-shelf filter.
+    Slope is fixed (Q≈0.707) giving ~12 dB/oct response.
+    """
+    if abs(gain_db) < 1e-3:        # no boost/cut
+        return [1.0, 0.0, 0.0], [1.0, 0.0, 0.0]
+
+    A   = 10 ** (gain_db / 40)     # √(linear gain)
+    w0  = 2 * np.pi * freq_hz / fs
+    cos = np.cos(w0)
+    sin = np.sin(w0)
+    Q   = 0.707  # gentle slope
+    alpha = sin / (2 * Q) * np.sqrt((A + 1/A) * (1/Q - 1) + 2)
+
+    b0 =    A*((A+1) + (A-1)*cos + 2*np.sqrt(A)*alpha)
+    b1 = -2*A*((A-1) + (A+1)*cos)
+    b2 =    A*((A+1) + (A-1)*cos - 2*np.sqrt(A)*alpha)
+    a0 =        (A+1) - (A-1)*cos + 2*np.sqrt(A)*alpha
+    a1 =  2*((A-1) - (A+1)*cos)
+    a2 =        (A+1) - (A-1)*cos - 2*np.sqrt(A)*alpha
+
+    return [b0/a0, b1/a0, b2/a0], [1.0, a1/a0, a2/a0]
+
+# Generate biquad coefficients for peaking (bell) EQ filter
+
+def peaking_biquad_coeffs(freq_hz: float, gain_db: float, Q: float, fs: int):
+    """
+    Return biquad coefficients for a peaking (bell) EQ filter.
+    """
+    if abs(gain_db) < 1e-3:
+        return [1.0, 0.0, 0.0], [1.0, 0.0, 0.0]
+
+    A   = 10 ** (gain_db / 40)
+    w0  = 2 * np.pi * freq_hz / fs
+    cos = np.cos(w0)
+    sin = np.sin(w0)
+    alpha = sin / (2 * Q)
+
+    b0 = 1 + alpha*A
+    b1 = -2*cos
+    b2 = 1 - alpha*A
+    a0 = 1 + alpha/A
+    a1 = -2*cos
+    a2 = 1 - alpha/A
+
+    return [b0/a0, b1/a0, b2/a0], [1.0, a1/a0, a2/a0]
+
+# Apply biquad filter to audio data using scipy.signal.lfilter
+
+def apply_biquad_filter(data: np.ndarray, b: list, a: list):
+    """Light wrapper around scipy.signal.lfilter for biquad processing."""
+    from scipy.signal import lfilter
+    return lfilter(b, a, data)
+
+# Apply real-time global EQ to drum samples (pygame Sound objects)
+
+def apply_global_eq_to_sound(sound: pygame.mixer.Sound, slider: float):
+    """
+    Apply *dynamic* global EQ (high-shelf & low-mid peaking) to a drum sample
+    based on current slider position, returning a *new* pygame Sound.
+    """
+    raw = pygame.sndarray.array(sound).astype(np.float32)
+
+    highshelf_db = slider_to_global_highshelf_db(slider)
+    lowmid_db    = slider_to_lowmid_db(slider)
+
+    # Early exit if no EQ change
+    if abs(highshelf_db) < 0.1 and abs(lowmid_db) < 0.1:
+        return sound
+
+    def process_channel(channel_data: np.ndarray) -> np.ndarray:
+        if abs(highshelf_db) >= 0.1:
+            b, a = highshelf_biquad_coeffs(HIGHSHELF_FREQ_HZ,
+                                           highshelf_db, sample_rate)
+            channel_data = apply_biquad_filter(channel_data, b, a)
+        if abs(lowmid_db) >= 0.1:
+            b, a = peaking_biquad_coeffs(LOWMID_CENTER_FREQ_HZ,
+                                         lowmid_db, LOWMID_Q_FACTOR,
+                                         sample_rate)
+            channel_data = apply_biquad_filter(channel_data, b, a)
+        return channel_data
+
+    if raw.ndim == 2:  # stereo
+        for ch in range(raw.shape[1]):
+            raw[:, ch] = process_channel(raw[:, ch])
+    else:              # mono
+        raw = process_channel(raw)
+
+    # Clip & convert back to int16
+    np.clip(raw, -32768, 32767, out=raw)
+    return pygame.sndarray.make_sound(raw.astype(np.int16))
+
+# Apply real-time global EQ to bass synth output (numpy arrays)
+# NumPy version of Global EQ – for Synth output
+def apply_global_eq_to_array(audio_array: np.ndarray, slider: float) -> np.ndarray:
+    """
+    Apply dynamic global EQ (high-shelf & low-mid peaking) to a NumPy audio
+    array (mono or stereo).  Used by the bass synth so that it shares the same
+    global EQ behaviour as the drum samples.
+    """
+    highshelf_db = slider_to_global_highshelf_db(slider)
+    lowmid_db    = slider_to_lowmid_db(slider)
+
+    # Early-exit if changes are insignificant
+    if abs(highshelf_db) < 0.1 and abs(lowmid_db) < 0.1:
+        return audio_array
+
+    def process_channel(buf: np.ndarray) -> np.ndarray:
+        if abs(highshelf_db) >= 0.1:
+            b, a = highshelf_biquad_coeffs(HIGHSHELF_FREQ_HZ,
+                                           highshelf_db, sample_rate)
+            buf = apply_biquad_filter(buf, b, a)
+        if abs(lowmid_db) >= 0.1:
+            b, a = peaking_biquad_coeffs(LOWMID_CENTER_FREQ_HZ,
+                                         lowmid_db, LOWMID_Q_FACTOR,
+                                         sample_rate)
+            buf = apply_biquad_filter(buf, b, a)
+        return buf
+
+    # Work on a copy to avoid mutating the caller's buffer
+    out = audio_array.copy()
+
+    if out.ndim == 2:            # stereo
+        for ch in range(out.shape[1]):
+            out[:, ch] = process_channel(out[:, ch])
+    else:                        # mono
+        out = process_channel(out)
+
+    return out
+
+
+# ============================================================================
+# MIDI AND MUSICAL UTILITIES
+# ============================================================================
+
+# Interval name → semitone offset mapping  (ACTIVELY USED by bass pattern logic)
 interval_to_semitone = {
     # Below-tonic (negative) degrees
     '-1': -12, '-b2': -11, '-2': -10, '-b3': -9,  '-3': -8,  '-4': -7,
@@ -328,77 +508,50 @@ interval_to_semitone = {
     '5': 7, 'b6': 8, '6': 9, 'b7': 10, '7': 11, '8': 12
 }
 
-def midi_notes_from_degrees(degrees, tonic_note=tonic):
-    midi_notes = []
-    for deg in degrees:
-        semitone = interval_to_semitone.get(deg)
-        if semitone is None:
-            raise ValueError(f"Unknown scale degree: {deg}")
-        midi_notes.append(tonic_note + semitone)
-    return midi_notes
-
 def get_degree_name(midi_note, tonic_note=tonic):
+    # Convert MIDI note to scale-degree name (mainly for debugging/analysis)
     diff = midi_note - tonic_note
     wrapped = diff % 12
     if diff >= 0:
         return scale_degree_map.get(wrapped, '?')
     else:
-        return scale_degree_map.get(wrapped - 12, '?')  # negative equivalent
-bass_scales = {
-    "scale1": ["1", "b2", "b3", "4", "5", "b6", "b7", "8"],
-    "scale2": ["1", "2", "b3", "4", "5", "b6", "b7", "8"],
-    "scale3": ["1", "2", "b3", "4", "5", "6", "b7", "8"],
-    "scale4": ["1", "2", "3", "4", "5", "6", "b7", "8"],
-    "scale5": ["1", "2", "3", "4", "5", "6", "7", "8"],
-    "scale6": ["1", "2", "3", "#4", "5", "6", "7", "8"]
-}
-
-midi_pattern_library = {
-    name: midi_notes_from_degrees(degrees, tonic_note=tonic)
-    for name, degrees in bass_scales.items()
-}
+        # For below-tonic notes look up the negative equivalent label
+        return scale_degree_map.get(wrapped - 12, '?')
 
 def freq_from_midi(midi_note):
-    # MIDI note 69 = A4 = 440 Hz
+    # Convert MIDI note number to Hz (used by Synth.render_note)
     return 440.0 * 2 ** ((midi_note - 69) / 12)
 
+# ============================================================================
+# AUDIO LOADING
+# ============================================================================
 
-labels = [
-    "SadLevel8", "SadLevel7", "SadLevel6", "SadLevel5",
-    "SadLevel4", "SadLevel3", "SadLevel2", "SadLevel1",
-    "Neutral",
-    "HappyLevel1", "HappyLevel2", "HappyLevel3",
-    "HappyLevel4", "HappyLevel5", "HappyLevel6",
-    "HappyLevel7", "HappyLevel8"
-]
+def fade_in_kick_sample(sound, sample_rate):
+    """
+    Apply a short linear fade-in to *kick drum* samples to eliminate pops.
+    Fade length is controlled by the configurable constant ``KICK_FADE_IN_MS``.
+    """
+    fade_samples = int(sample_rate * KICK_FADE_IN_MS / 1000)
 
-import numpy as np
-import pygame
-
-def fade_in_sound(sound, sample_rate, fade_ms=10):
-    fade_samples = int(sample_rate * fade_ms / 1000)
-    
+    # Extract raw audio as float32 for processing
     raw = pygame.sndarray.array(sound).astype(np.float32)
-    
-    # If stereo, shape is (samples, channels)
+
+    # Build fade envelope (mono or stereo)
     if raw.ndim == 2:
-        fade_envelope = np.linspace(0, 1, fade_samples)[:, None]
+        fade_env = np.linspace(0, 1, fade_samples, dtype=np.float32)[:, None]
     else:
-        fade_envelope = np.linspace(0, 1, fade_samples)
-    
-    raw[:fade_samples] *= fade_envelope
-    
-    # Clip to valid range
+        fade_env = np.linspace(0, 1, fade_samples, dtype=np.float32)
+
+    raw[:fade_samples] *= fade_env
+
+    # Clip to int16 range and convert back
     np.clip(raw, -32768, 32767, out=raw)
-    
-    # Convert back to int16 (assuming 16-bit)
-    processed = raw.astype(np.int16)
-    
-    return pygame.sndarray.make_sound(processed)
+    processed_int16 = raw.astype(np.int16)
+    return pygame.sndarray.make_sound(processed_int16)
 
-
-sample_cache = {}
-def load_samples():
+# ===Load Kick Samples ===
+kick_cache = {}
+def load_kick_samples():
     prefix = "ProgrammableLoop2/ProgrammableLoop2"
     fix = prefix + "Kick"
     suffix = ".wav"
@@ -406,16 +559,15 @@ def load_samples():
         path = fix + label + suffix
         try:
             sound = pygame.mixer.Sound(path)
-            sound = fade_in_sound(sound, sample_rate, fade_ms=10)
-            sample_cache[label] = sound
+            # Apply short fade-in to kick samples only
+            sound = fade_in_kick_sample(sound, sample_rate)
+            kick_cache[label] = sound
         except Exception as e:
             print(f"Error loading {path}: {e}")
-
-load_samples()
+load_kick_samples()
 
 # === Load Snare Samples ===
 snare_cache = {}
-
 def load_snare_samples():
     prefix = "ProgrammableLoop2/ProgrammableLoop2Snare"
     suffix = ".wav"
@@ -425,12 +577,10 @@ def load_snare_samples():
             snare_cache[label] = pygame.mixer.Sound(path)
         except Exception as e:
             print(f"Error loading {path}: {e}")
-
 load_snare_samples()
 
 # === Load Cymbal Samples ===
 cymbal_cache = {}
-
 def load_cymbal_samples():
     prefix = "ProgrammableLoop2/ProgrammableLoop2Cymbal"
     suffix = ".wav"
@@ -440,26 +590,27 @@ def load_cymbal_samples():
             cymbal_cache[label] = pygame.mixer.Sound(path)
         except Exception as e:
             print(f"Error loading {path}: {e}")
-
 load_cymbal_samples()
+
+# ============================================================================
+# SAMPLE-BASED PLAY FUNCTIONS
+# ============================================================================
 
 
 def play_kick_sample_with_delay_and_gain(label, delay_ms, gain_db):
     def delayed_play():
         time.sleep(delay_ms / 1000)
-        sound = sample_cache.get(label)
+        sound = kick_cache.get(label)
         if sound:
             with slider_val_lock:
                 slider = slider_val
+            # --- Real-time GLOBAL EQ ---------------------------------------
+            sound = apply_global_eq_to_sound(sound, slider)
+
+            # --- Pure volume / gain (no pseudo EQ) -------------------------
             global_gain_db = slider_to_global_gain_db(slider)
-            global_highshelf_db = slider_to_global_highshelf_db(slider)
-            # Kick specific boost
-            kick_boost_db = 6.0  # +3 dB louder kicks
-            # Combine gains (total_gain_db applies to volume; highshelf is conceptual here)
-            total_gain_db = gain_db + global_gain_db + global_highshelf_db + kick_boost_db
-            lowmid_db = slider_to_lowmid_db(slider)
-            # Combine gains (total_gain_db applies to volume; highshelf is conceptual here)
-            total_gain_db = gain_db + global_gain_db + global_highshelf_db + lowmid_db + kick_boost_db
+            kick_boost_db = KICK_BOOST_DB        # extra punch for kicks
+            total_gain_db = gain_db + global_gain_db + kick_boost_db
             volume = 10 ** (total_gain_db / 20)
             sound.set_volume(min(1.0, max(0.0, volume)))
             sound.play()
@@ -472,7 +623,11 @@ def play_snare_with_delay_and_gain(label, delay_ms, gain_db):
         if sound:
             with slider_val_lock:
                 slider = slider_val
-            total_gain_db = gain_db + slider_to_global_gain_db(slider) + slider_to_global_highshelf_db(slider) + slider_to_lowmid_db(slider)
+            # Apply real EQ filtering
+            sound = apply_global_eq_to_sound(sound, slider)
+
+            # Volume only (EQ already applied)
+            total_gain_db = gain_db + slider_to_global_gain_db(slider)
             volume = 10 ** (total_gain_db/20)
             sound.set_volume(min(1.0, max(0.0, volume)))
             sound.play()
@@ -485,15 +640,51 @@ def play_cymbal_with_delay_and_gain(label, delay_ms, gain_db):
         if sound:
             with slider_val_lock:
                 slider = slider_val
-            total_gain_db = gain_db \
-                + slider_to_global_gain_db(slider) \
-                + slider_to_global_highshelf_db(slider) \
-                + slider_to_lowmid_db(slider)
+            # Apply real EQ filtering
+            sound = apply_global_eq_to_sound(sound, slider)
+
+            # Volume only (EQ already applied)
+            total_gain_db = gain_db + slider_to_global_gain_db(slider)
             volume = 10 ** (total_gain_db/20)
             sound.set_volume(min(1.0, max(0.0, volume)))
             sound.play()
     threading.Thread(target=delayed_play).start()
 
+# ============================================================================
+# UNUSED (kept for potential future use)
+# ============================================================================
+
+# <UNUSED?> note_duration not referenced elsewhere; kept for future use
+#note_duration: float = 60 / current_bpm   # noqa: F841
+
+#bass_scales = {
+#    "scale1": ["1", "b2", "b3", "4", "5", "b6", "b7", "8"],
+#    "scale2": ["1", "2", "b3", "4", "5", "b6", "b7", "8"],
+#    "scale3": ["1", "2", "b3", "4", "5", "6", "b7", "8"],
+#    "scale4": ["1", "2", "3", "4", "5", "6", "b7", "8"],
+#    "scale5": ["1", "2", "3", "4", "5", "6", "7", "8"],
+#    "scale6": ["1", "2", "3", "#4", "5", "6", "7", "8"]
+#}
+
+#def midi_notes_from_degrees(degrees, tonic_note=tonic):
+#    """Convert scale-degree strings to MIDI note numbers. Currently UNUSED."""
+#    midi_notes = []
+#    for deg in degrees:
+#        semitone = interval_to_semitone.get(deg)
+#        if semitone is None:
+#            raise ValueError(f"Unknown scale degree: {deg}")
+#        midi_notes.append(tonic_note + semitone)
+#    return midi_notes
+
+# UNUSED: pre-baked library of MIDI-note lists for each bass scale
+#midi_pattern_library = {
+#    name: midi_notes_from_degrees(degrees, tonic_note=tonic)
+#    for name, degrees in bass_scales.items()
+#}
+
+        # ============================================================================
+        #                           S~E~Q~U~E~N~C~E~R                                # 
+        # ============================================================================
 
 def sequencer(stop_event):
     global current_group_index, current_bpm, start_bpm, target_bpm, ramp_start_time, ramp_duration
@@ -542,24 +733,24 @@ def sequencer(stop_event):
             if goal_group_index != current_group_index and step == 0:
                 current_group_index = goal_group_index
 
-            if kick_patterns[current_group_index][step]:
+            if KICK_PATTERNS[current_group_index][step]:
                 delay_ms = delay_patterns_ms[current_group_index][step] + drum_delay * 1000
-                gain_db = global_accents[current_group_index][step]
+                gain_db = DRUM_ACCENT_PATTERNS[current_group_index][step]
                 kick_time = time.time()
                 play_kick_sample_with_delay_and_gain(labels[current_group_index], delay_ms, gain_db)
 
-            if snare_patterns[current_group_index][step]:
+            if SNARE_PATTERNS[current_group_index][step]:
                 delay_ms = delay_patterns_ms[current_group_index][step] + drum_delay * 1000
-                gain_db = global_accents[current_group_index][step]
+                gain_db = DRUM_ACCENT_PATTERNS[current_group_index][step]
                 play_snare_with_delay_and_gain(labels[current_group_index], delay_ms, gain_db)
 
-            if cymbal_patterns[current_group_index][step]:
+            if CYMBAL_PATTERNS[current_group_index][step]:
                 delay_ms = delay_patterns_ms[current_group_index][step] + drum_delay * 1000
-                gain_db   = global_accents[current_group_index][step]
+                gain_db   = DRUM_ACCENT_PATTERNS[current_group_index][step]
                 play_cymbal_with_delay_and_gain(labels[current_group_index],
                                                 delay_ms, gain_db)
 
-            selected_bass_pattern = bass_patterns[current_group_index]
+            selected_bass_pattern = BASS_PATTERNS[current_group_index]
 
 
             
@@ -614,6 +805,7 @@ import threading
 import time
 import numpy as np
 import pyaudio
+import wave
 
 def lowpass_filter_resonant(wave, cutoff_freqs, resonance, sample_rate, drive, low, band):
     """
@@ -1268,7 +1460,13 @@ class Synth:
 
         combined_wave = normalize_rms(combined_wave, target_rms=0.1)
 
-        
+        # ------------------------------------------------------------------
+        # Apply GLOBAL EQ (high-shelf & low-mid) at the very end so the bass
+        # synth responds to the same slider-controlled tonal shaping as drums.
+        # ------------------------------------------------------------------
+        with slider_val_lock:
+            slider = slider_val
+        combined_wave = apply_global_eq_to_array(combined_wave, slider)
 
         return combined_wave
 
