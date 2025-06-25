@@ -10,6 +10,9 @@ from pedalboard import Pedalboard, Reverb
 import numpy as np
 import pygame.sndarray 
 import pyaudio
+import wave
+import soundfile as sf
+from scipy.signal import butter, lfilter
 
 # ============================================================================
 # CONFIGURATION SECTION - ADJUST THESE VALUES TO CUSTOMIZE THE SYSTEM
@@ -26,6 +29,15 @@ MAX_BPM = 180                   # Maximum BPM slider can reach
 DEFAULT_BPM = 120               # Starting BPM
 STEPS_PER_MEASURE = 16          # Number of steps in each pattern
 BASS_NOTE_DURATION_FACTOR = 0.875  # Notes end before next beat (0.0-1.0)
+
+## SEQUENCER TIMING SETTINGS
+# Initial delay before sequencer’s first trigger
+SEQUENCER_GLOBAL_DELAY = 0.03       # seconds
+# Re-use existing DRUM_DELAY_OFFSET for drum timing skew
+# Global multiplier to convert a *beat* into the bass-note duration
+BASS_DURATION_MULTIPLIER = 2.0       # whole-beat multiplier
+# How many measures it takes to complete a BPM transition
+BPM_RAMP_MEASURES = 4
 
 ## DRUM SETTINGS
 KICK_BOOST_DB = 6.0             # Extra volume boost for kicks (dB)
@@ -250,7 +262,7 @@ tonic: int       = TONIC_MIDI_NOTE
 # Mutable runtime state ------------------------------------------------------
 current_bpm: float        = DEFAULT_BPM        # updated continuously
 slider_val:  float        = 0.5                # GUI slider position (0–1)
-current_group_index: int  = 8                  # 8 = “Neutral” starting pattern
+current_pattern_index: int  = 8                  # 8 = “Neutral” starting pattern
 steps_per_measure: int    = STEPS_PER_MEASURE
 
 # Tempo-ramp bookkeeping
@@ -279,14 +291,7 @@ for d in happy:
     delay_patterns_ms.append(pattern)
 
 # Slider Level Labels
-labels = [
-    "SadLevel8", "SadLevel7", "SadLevel6", "SadLevel5",
-    "SadLevel4", "SadLevel3", "SadLevel2", "SadLevel1",
-    "Neutral",
-    "HappyLevel1", "HappyLevel2", "HappyLevel3",
-    "HappyLevel4", "HappyLevel5", "HappyLevel6",
-    "HappyLevel7", "HappyLevel8"
-]
+labels = PATTERN_LABELS
 
 # ============================================================================
 # AUDIO SYSTEM INITIALIZATION
@@ -322,6 +327,54 @@ def bpm_to_slider(bpm_val: float) -> float:
     log_min = math.log(MIN_BPM)
     log_max = math.log(MAX_BPM)
     return (math.log(bpm_val) - log_min) / (log_max - log_min)
+
+# BPM-RAMP HELPER
+def update_bpm_from_slider(slider: float) -> float:
+    """
+    Update BPM with smooth ramping transitions based on slider position.
+
+    This manages the global tempo-ramp state so that every time the user moves
+    the slider, the tempo glides to the new value over a musical duration
+    (``BPM_RAMP_MEASURES`` measures).  It returns the *current* BPM that the
+    sequencer should use **right now**.
+
+    Parameters
+    ----------
+    slider : float
+        Current GUI slider value in the 0‒1 range.
+
+    Returns
+    -------
+    float
+        The BPM value to use for scheduling events this instant.
+    """
+    global current_bpm, start_bpm, target_bpm, ramp_start_time, ramp_duration
+
+    with bpm_lock:
+        # Desired BPM derived from slider position
+        new_target_bpm = slider_to_bpm(slider)
+
+        # Start a new ramp whenever the target BPM changes
+        if new_target_bpm != target_bpm:
+            start_bpm        = current_bpm
+            target_bpm       = new_target_bpm
+            ramp_start_time  = time.time()
+            ramp_duration    = (60 / start_bpm) * BPM_RAMP_MEASURES
+
+        # If ramping, interpolate from start_bpm → target_bpm
+        if ramp_start_time and ramp_duration:
+            elapsed   = time.time() - ramp_start_time
+            progress  = min(elapsed / ramp_duration, 1.0)
+            current_bpm = start_bpm + (target_bpm - start_bpm) * progress
+
+            # Ramp finished?
+            if progress >= 1.0:
+                current_bpm     = target_bpm
+                start_bpm       = target_bpm
+                ramp_start_time = None
+                ramp_duration   = None
+
+        return current_bpm
 
 # ============================================================================
 # MASTER AUDIO FUNCTIONS
@@ -508,27 +561,50 @@ interval_to_semitone = {
     '5': 7, 'b6': 8, '6': 9, 'b7': 10, '7': 11, '8': 12
 }
 
-def get_degree_name(midi_note, tonic_note=tonic):
-    # Convert MIDI note to scale-degree name (mainly for debugging/analysis)
-    diff = midi_note - tonic_note
-    wrapped = diff % 12
-    if diff >= 0:
-        return scale_degree_map.get(wrapped, '?')
-    else:
-        # For below-tonic notes look up the negative equivalent label
-        return scale_degree_map.get(wrapped - 12, '?')
-
 def freq_from_midi(midi_note):
     # Convert MIDI note number to Hz (used by Synth.render_note)
     return 440.0 * 2 ** ((midi_note - 69) / 12)
+
+def get_extended_duration(pattern, start_index, base_duration):
+    """
+    Calculate the total duration for a bass note including tied continuations.
+
+    Looks ahead in the pattern from ``start_index`` to count how many
+    `'c'` symbols follow (indicating tied/continued notes), then multiplies
+    ``base_duration`` by the total number of steps the note should sustain.
+
+    Parameters
+    ----------
+    pattern : list
+        Bass pattern containing degree strings, `'c'` for continuation,
+        and ``0`` for rest.
+    start_index : int
+        Starting position in the pattern to begin counting from.
+    base_duration : float
+        Duration of a single *step* in **seconds**.
+
+    Returns
+    -------
+    float
+        Total duration for the note including all tied continuations.
+    """
+    length = len(pattern)
+    total_steps = 1  # count the current note itself
+    i = (start_index + 1) % length
+    while pattern[i] == 'c':
+        total_steps += 1
+        i = (i + 1) % length
+        if i == start_index:          # pattern of all 'c's → safety break
+            break
+    return base_duration * total_steps
 
 # ============================================================================
 # AUDIO LOADING
 # ============================================================================
 
+# Apply a short linear fade-in to *kick drum* samples to eliminate pops.
 def fade_in_kick_sample(sound, sample_rate):
     """
-    Apply a short linear fade-in to *kick drum* samples to eliminate pops.
     Fade length is controlled by the configurable constant ``KICK_FADE_IN_MS``.
     """
     fade_samples = int(sample_rate * KICK_FADE_IN_MS / 1000)
@@ -650,6 +726,24 @@ def play_cymbal_with_delay_and_gain(label, delay_ms, gain_db):
             sound.play()
     threading.Thread(target=delayed_play).start()
 
+# Helper: trigger *all* drum types for a single sequencer step
+def trigger_drums_for_step(step: int,
+                           pattern_index: int,
+                           drum_delay_ms: float) -> None:
+    # (pattern-matrix, corresponding play-function) pairs
+    drum_map = [
+        (KICK_PATTERNS,   play_kick_sample_with_delay_and_gain),
+        (SNARE_PATTERNS,  play_snare_with_delay_and_gain),
+        (CYMBAL_PATTERNS, play_cymbal_with_delay_and_gain),
+    ]
+    for pattern_matrix, play_fn in drum_map:
+        if pattern_matrix[pattern_index][step]:
+            delay_ms = (
+                delay_patterns_ms[pattern_index][step] + drum_delay_ms
+            )
+            gain_db = DRUM_ACCENT_PATTERNS[pattern_index][step]
+            play_fn(labels[pattern_index], delay_ms, gain_db)
+
 # ============================================================================
 # UNUSED (kept for potential future use)
 # ============================================================================
@@ -682,130 +776,80 @@ def play_cymbal_with_delay_and_gain(label, delay_ms, gain_db):
 #    for name, degrees in bass_scales.items()
 #}
 
-        # ============================================================================
-        #                           S~E~Q~U~E~N~C~E~R                                # 
-        # ============================================================================
+#def get_degree_name(midi_note, tonic_note=tonic):
+#    # Convert MIDI note to scale-degree name (mainly for debugging/analysis)
+#    diff = midi_note - tonic_note
+#    wrapped = diff % 12
+#    if diff >= 0:
+#        return scale_degree_map.get(wrapped, '?')
+#    else:
+#        # For below-tonic notes look up the negative equivalent label
+#        return scale_degree_map.get(wrapped - 12, '?')
+
+
+        # ===========================================================================#
+        #                           S~E~Q~U~E~N~C~E~R                                #
+        # ===========================================================================#
 
 def sequencer(stop_event):
-    global current_group_index, current_bpm, start_bpm, target_bpm, ramp_start_time, ramp_duration
-
-    global_delay = 0.03
+    global current_pattern_index, current_bpm, start_bpm, target_bpm, ramp_start_time, ramp_duration
+    # Initial setup - timing variables and delay offsets
+    global_delay = SEQUENCER_GLOBAL_DELAY
     next_trigger = time.time() + global_delay
     step = 0
-    note_index = 0  # to cycle through midi_note_pattern
-    kick_time = 0
-    drum_delay = 0.04
-    last_note_end_time = 0  # global or at the start of your sequencer function or script
-
+    bass_pattern_index = 0  # to cycle through midi_note_pattern
+    drum_delay = DRUM_DELAY_OFFSET
+    # Main sequencer loop - read input, calculate timing, trigger events
     while not stop_event.is_set():
         with slider_val_lock:
             slider = slider_val
-
-        goal_group_index = int(round(slider * (len(labels) - 1)))
-
-        with bpm_lock:
-            new_target_bpm = slider_to_bpm(slider)
-            if new_target_bpm != target_bpm:
-                start_bpm = current_bpm
-                target_bpm = new_target_bpm
-                ramp_start_time = time.time()
-                ramp_duration = (60 / start_bpm) * 4
-
-            if ramp_start_time and ramp_duration:
-                elapsed = time.time() - ramp_start_time
-                progress = min(elapsed / ramp_duration, 1.0)
-                current_bpm = start_bpm + (target_bpm - start_bpm) * progress
-                if progress >= 1.0:
-                    current_bpm = target_bpm
-                    start_bpm = target_bpm
-                    ramp_start_time = None
-                    ramp_duration = None
-
-            bpm_to_use = current_bpm
-
+        # Convert slider to target pattern index
+        target_pattern_index = int(round(slider * (len(labels) - 1)))
+        # Update BPM with smooth ramping
+        bpm_to_use = update_bpm_from_slider(slider)
+        # Calculate timing for current BPM
         seconds_per_beat = 60 / bpm_to_use
         seconds_per_16th = seconds_per_beat / 4
-
         now = time.time()
-        
+        # Check if it's time to trigger the next step
         if now >= next_trigger:
-            # Switch pattern only at the start of a 16-step cycle
-            if goal_group_index != current_group_index and step == 0:
-                current_group_index = goal_group_index
-
-            if KICK_PATTERNS[current_group_index][step]:
-                delay_ms = delay_patterns_ms[current_group_index][step] + drum_delay * 1000
-                gain_db = DRUM_ACCENT_PATTERNS[current_group_index][step]
-                kick_time = time.time()
-                play_kick_sample_with_delay_and_gain(labels[current_group_index], delay_ms, gain_db)
-
-            if SNARE_PATTERNS[current_group_index][step]:
-                delay_ms = delay_patterns_ms[current_group_index][step] + drum_delay * 1000
-                gain_db = DRUM_ACCENT_PATTERNS[current_group_index][step]
-                play_snare_with_delay_and_gain(labels[current_group_index], delay_ms, gain_db)
-
-            if CYMBAL_PATTERNS[current_group_index][step]:
-                delay_ms = delay_patterns_ms[current_group_index][step] + drum_delay * 1000
-                gain_db   = DRUM_ACCENT_PATTERNS[current_group_index][step]
-                play_cymbal_with_delay_and_gain(labels[current_group_index],
-                                                delay_ms, gain_db)
-
-            selected_bass_pattern = BASS_PATTERNS[current_group_index]
-
-
-            
-            
-            def get_extended_duration(pattern, start_index, base_duration):
-                length = len(pattern)
-                total_steps = 1  # count current note
-                i = (start_index + 1) % length
-                while pattern[i] == 'c':
-                    total_steps += 1
-                    i = (i + 1) % length
-                    if i == start_index:
-                        break  # avoid infinite loop if pattern all 'c's
-                return base_duration * total_steps
-
-            degree = selected_bass_pattern[note_index % len(selected_bass_pattern)]
-            base_duration = seconds_per_16th * 0.875 * 2  # whole beat
+            # Switch patterns only at step 0
+            if target_pattern_index != current_pattern_index and step == 0:
+                current_pattern_index = target_pattern_index
+            # --- Trigger all drums for this step ---------------------------
+            trigger_drums_for_step(step,
+                                   current_pattern_index,
+                                   drum_delay * 1000)
+            # Schedule bass note for current step
+            selected_bass_pattern = BASS_PATTERNS[current_pattern_index]
+            degree = selected_bass_pattern[bass_pattern_index % len(selected_bass_pattern)]
+            base_duration = seconds_per_16th * BASS_NOTE_DURATION_FACTOR * BASS_DURATION_MULTIPLIER  # whole beat
             now = time.time()
-
             if degree == 0 or degree == 'c':
                 # Don't schedule; just advance
                 note = None
             else:
                 degree_str = degree if isinstance(degree, str) else str(degree)
                 note = tonic + interval_to_semitone[degree_str]
-                duration = get_extended_duration(selected_bass_pattern, note_index % len(selected_bass_pattern), base_duration)
-                
+                duration = get_extended_duration(selected_bass_pattern,
+                                                 bass_pattern_index % len(selected_bass_pattern),
+                                                 base_duration)
                 bass_synth.schedule_note(now, note, duration)
-
-            note_index += 1
-
-
-
-
-
-            
+            bass_pattern_index += 1
+            # Advance to next step and set next trigger time
             step = (step + 1) % steps_per_measure
             next_trigger += seconds_per_16th
         else:
+            # Sleep until next trigger time
             time_to_sleep = next_trigger - now
             if time_to_sleep > 0:
                 time.sleep(time_to_sleep)
 
-        
+        # ===========================================================================#
+        #                           S~Y~N~T~H~E~S~I~Z~E~R                            #
+        # ===========================================================================#
 
-def on_slider_change(val):
-    global slider_val
-    with slider_val_lock:
-        slider_val = float(val)
-
-import threading
-import time
-import numpy as np
-import pyaudio
-import wave
+# SYNTH FX FUNCTIONS ---------------------------------------------------------------------
 
 def lowpass_filter_resonant(wave, cutoff_freqs, resonance, sample_rate, drive, low, band):
     """
@@ -844,8 +888,6 @@ def lowpass_filter_resonant(wave, cutoff_freqs, resonance, sample_rate, drive, l
 
     return out, low, band
 
-
-
 def comb_filter_modulated(wave, sample_rate, base_delay=1/47.1, feedback=0.3, drive=1.1538, env_percent=1.0):
     samples = len(wave)
     out = np.copy(wave) * (1 + drive)
@@ -871,8 +913,6 @@ def global_resonance_filter(wave, sample_rate, freq=85.61, resonance=13.65):
 
     return np.convolve(wave, b, mode='same') - np.convolve(wave, a[1:], mode='same')
 
-from scipy.signal import butter, lfilter
-
 def butter_lowpass(cutoff, fs, order=4):
     nyq = 0.5 * fs
     normal_cutoff = cutoff / nyq
@@ -889,7 +929,6 @@ def slider_to_osc1_volume(slider):
     # So at slider=0.5, db = -20 dB (halfway)
     db = -40 * (slider) 
     return 10 ** (db / 20)
-
 
 # Dummy freq_from_midi, slider_val, slider_val_lock, base_gain_db, slider_to_global_gain_db, slider_to_global_highshelf_db, slider_to_lowmid_db
 # These must be defined elsewhere in your full code as per original
@@ -935,8 +974,6 @@ class Synth:
 
 
 
-
-        import soundfile as sf
 
         self.sample_wave, self.sample_rate_wave = sf.read('ProgrammableLoop2/ProgrammableLoop2BassSynthOscillatorSample.wav', dtype='float32')
 
@@ -1514,6 +1551,10 @@ class Synth:
 bass_synth = Synth(sample_rate)
 bass_synth.set_master_volume(0.5)  # sets volume to 50%
 
+def on_slider_change(val):
+    global slider_val
+    with slider_val_lock:
+        slider_val = float(val)
 
 
 # Create the Tk root window only once
