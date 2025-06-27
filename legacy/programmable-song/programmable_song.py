@@ -13,101 +13,39 @@ import pyaudio
 import wave
 import soundfile as sf
 from scipy.signal import butter, lfilter
+from dataclasses import dataclass
 
-# ============================================================================
-# CONFIGURATION SECTION - ADJUST THESE VALUES TO CUSTOMIZE THE SYSTEM
-# ============================================================================
+        # ====================================================================#
+        # CONFIGURATION SECTION - ADJUST THESE VALUES TO CUSTOMIZE THE SYSTEM #
+        # ====================================================================#
+
+#---------------------------------------------------
+# GLOBAL AUDIO SETTINGS
+#---------------------------------------------------
 
 ## AUDIO SETTINGS
 SAMPLE_RATE = 44100
 BUFFER_SIZE = 1024
-MASTER_VOLUME = 0.5
+DRUMS_MASTER_VOLUME = 0.5      
+BASS_SYNTH_MASTER_VOLUME = 0.9
 
 ## TIMING SETTINGS
-MIN_BPM = 80                    # Minimum BPM slider can reach
-MAX_BPM = 180                   # Maximum BPM slider can reach
-DEFAULT_BPM = 120               # Starting BPM
-STEPS_PER_MEASURE = 16          # Number of steps in each pattern
-BASS_NOTE_DURATION_FACTOR = 0.875  # Notes end before next beat (0.0-1.0)
+MIN_BPM = 80                    
+MAX_BPM = 180                   
+DEFAULT_BPM = 120               
+STEPS_PER_MEASURE = 16          
 
 ## SEQUENCER TIMING SETTINGS
 # Initial delay before sequencer’s first trigger
 SEQUENCER_GLOBAL_DELAY = 0.03       # seconds
 # Re-use existing DRUM_DELAY_OFFSET for drum timing skew
-# Global multiplier to convert a *beat* into the bass-note duration
-BASS_DURATION_MULTIPLIER = 2.0       # whole-beat multiplier
 # How many measures it takes to complete a BPM transition
 BPM_RAMP_MEASURES = 4
 
-## DRUM SETTINGS
-KICK_BOOST_DB = 6.0             # Extra volume boost for kicks (dB)
-KICK_FADE_IN_MS = 10            # Fade-in time to prevent clicks (ms)
-DRUM_DELAY_OFFSET = 0.04        # Global drum timing offset (seconds)
-
-## EFFECT PARAMETER RANGES
-# Resonant Filter
-RESONANCE_MIN = 0.1             # Minimum filter resonance
-RESONANCE_MAX = 0.3             # Maximum filter resonance
-
-# Tube Drive
-TUBE_GAIN_MIN = 1.0             # Minimum tube drive gain
-TUBE_GAIN_MAX = 3.0             # Maximum tube drive gain
-TUBE_BIAS_MIN = 0.0             # Minimum tube bias
-TUBE_BIAS_MAX = 0.2             # Maximum tube bias
-TUBE_BLEND_MIN = 0.0            # Minimum tube blend
-TUBE_BLEND_MAX = 0.5            # Maximum tube blend
-
-# Bitcrusher
-BITCRUSHER_BIT_DEPTH = 12       # Bit depth for bitcrusher effect
-BITCRUSHER_DOWNSAMPLE_FACTOR = 3 # Downsample factor
-BITCRUSHER_MIX_MAX = 0.25       # Maximum bitcrusher mix
-
-# LFO Settings
-LFO_RATE = 3.22                 # LFO frequency (Hz)
-LFO_DEPTH_MIN = 0.001           # Minimum LFO depth
-LFO_DEPTH_MAX = 3.81            # Maximum LFO depth
-
-# Filter Envelope
-FILTER_PEAK_FREQ = 22.53        # Peak frequency for filter envelope
-FILTER_SUSTAIN_FREQ = 20        # Sustain frequency for filter envelope
-
-# ADSR Envelope Ranges
-ADSR_ATTACK_MIN = 0.018         # Minimum attack time (18ms)
-ADSR_ATTACK_MAX = 0.155         # Maximum attack time (155ms)
-ADSR_DECAY_MIN = 0.385          # Minimum decay time (385ms)
-ADSR_DECAY_MAX = 60.0           # Maximum decay time (60s)
-ADSR_RELEASE_MIN = 0.1          # Minimum release time (100ms)
-ADSR_RELEASE_MAX = 1.13         # Maximum release time (1130ms)
-ADSR_SUSTAIN_DB_MIN = -15.65    # Minimum sustain level (dB)
-ADSR_SUSTAIN_DB_MAX = 0.0       # Maximum sustain level (dB)
-
-# Comb Filter
-COMB_DELAY_MIN = 0.005          # Minimum comb delay (5ms)
-COMB_DELAY_MAX = 0.02           # Maximum comb delay (20ms)
-COMB_FEEDBACK = 0.01            # Fixed comb feedback
-COMB_DRIVE_BASE = 0.15          # Base comb drive amount
-
-# Global EQ Ranges
-GLOBAL_GAIN_DB_RANGE = 5.0      # ±5dB range for global gain
-HIGHSHELF_DB_RANGE = 2.0        # ±2dB range for high shelf
-LOWMID_DB_RANGE = 1.0           # ±1dB range for low-mid
-
-# ---------------------------------------------------------------------------
-# Global EQ Settings – actual filter parameters
-# ---------------------------------------------------------------------------
-# (These are used by the new bi-quad EQ helpers further below)
-HIGHSHELF_FREQ_HZ     = 3000     # High-shelf starts at 3 kHz
-HIGHSHELF_SLOPE_DB_OCT = 12      # 12 dB/oct ≈ 2-pole “gentle” shelf
-LOWMID_CENTER_FREQ_HZ = 300      # Low-mid peaking-EQ centre
-LOWMID_Q_FACTOR       = 2.0      # Q factor (bandwidth) for low-mid band
-
 # Smoothing Factors
 PARAMETER_SMOOTHING = 0.005     # How fast parameters change (0.001-0.1)
-VOLUME_SMOOTHING = 0.5          # Volume crossfade speed
-
-# Final Filter Settings
-FINAL_FILTER_MIN_FREQ = 183     # Minimum final filter cutoff
-FINAL_FILTER_MAX_FREQ = 20000   # Maximum final filter cutoff
+# EFFECTS_SMOOTHING is now defined per-synth in the config dictionary
+VOLUME_SMOOTHING    = 0.5       # Volume crossfade speed
 
 ## SAMPLE PATHS AND FILE NAMING
 SAMPLE_BASE_PATH = "ProgrammableLoop2/ProgrammableLoop2"
@@ -117,9 +55,173 @@ CYMBAL_SAMPLE_PREFIX = "Cymbal"
 BASS_SAMPLE_FILENAME = "BassSynthOscillatorSample.wav"
 SAMPLE_SUFFIX = ".wav"
 
-## TONIC AND MUSICAL SETTINGS
+## SAMPLE PROCESSING SETTINGS
+BASS_SAMPLE_TRIM_MS = 10        # Trim amount for bass sample (ms)
+DEFAULT_BASS_SAMPLE_PATH = "ProgrammableLoop2/ProgrammableLoop2BassSynthOscillatorSample.wav"  # Default sample path
+BASE_MIDI_NOTE = 36             # Root MIDI note of the bass sample (C2)
+SAMPLE_LATENCY_COMP_MS = 0.7    # Latency compensation for sample playback (ms)
+
+# ---------------------------------------------------------------------------
+# Global EQ Settings 
+# ---------------------------------------------------------------------------
+
+# Global EQ Ranges
+GLOBAL_GAIN_DB_RANGE = 5.0      # ±5dB range for global gain
+HIGHSHELF_DB_RANGE = 2.0        # ±2dB range for high shelf
+LOWMID_DB_RANGE = 1.0           # ±1dB range for low-mid
+
+# (These are used by the new bi-quad EQ helpers further below)
+HIGHSHELF_FREQ_HZ     = 3000     # High-shelf starts at 3 kHz
+HIGHSHELF_SLOPE_DB_OCT = 12      # 12 dB/oct ≈ 2-pole “gentle” shelf
+LOWMID_CENTER_FREQ_HZ = 300      # Low-mid peaking-EQ centre
+LOWMID_Q_FACTOR       = 2.0      # Q factor (bandwidth) for low-mid band
+
+# Final Filter Settings
+FINAL_FILTER_MIN_FREQ = 183     # Minimum final filter cutoff
+FINAL_FILTER_MAX_FREQ = 20000   # Maximum final filter cutoff
+
+
+#--------------
+#   DRUMS
+#--------------
+
+## DRUM SETTINGS
+KICK_BOOST_DB = 6.0             # Extra volume boost for kicks (dB)
+KICK_FADE_IN_MS = 10            # Fade-in time to prevent clicks (ms)
+DRUM_DELAY_OFFSET = 0.04        # Global drum timing offset (seconds)
+
+#--------------
+#   Bass
+#--------------
+
+## WAVEFORM OSCILLATOR SETTINGS (used like enums, kept global)
+WAVEFORM_SINE     = 1   # Pure sine wave
+WAVEFORM_TRIANGLE = 2   # Triangle wave
+WAVEFORM_SQUARE   = 3   # Square wave
+
+## TONIC AND TIMING (used by sequencer, kept global)
 TONIC_MIDI_NOTE = 36            # C2 - root note for bass patterns
-BASE_GAIN_DB = 10               # Base gain for samples
+BASS_DURATION_MULTIPLIER = 2.0       # whole-beat multiplier
+BASS_NOTE_DURATION_FACTOR = 0.875  # Notes end before next beat (0.0-1.0)
+
+# All other bass-specific parameters are now defined directly
+# in the BASS_CONFIG dictionary below.
+
+#--------------------------------------------------------------------------#
+# BASS SYNTH CONFIGURATION DICTIONARY                                     #
+#--------------------------------------------------------------------------#
+# This dictionary holds all parameters for the bass synth. To create a new #
+# synth, copy this dictionary, rename it, and change the values.           #
+#--------------------------------------------------------------------------#
+
+BASS_CONFIG = {
+    # --- Wave-form & musical settings -----------------------------------
+    "WAVEFORM_SINE": 1,
+    "WAVEFORM_TRIANGLE": 2,
+    "WAVEFORM_SQUARE": 3,
+    "DEFAULT_WAVEFORM_TYPE": 1,  # WAVEFORM_SINE
+    "TONIC_MIDI_NOTE": 36,
+    "BASE_GAIN_DB": 10,
+
+    # --- Oscillator volume ----------------------------------------------
+    "OSC1_VOLUME_DB_RANGE": 40,
+    "OSC1_VOLUME_DB_CONVERSION": 20,
+
+    # --- Note timing -----------------------------------------------------
+    "BASS_DURATION_MULTIPLIER": 2.0,
+    "BASS_NOTE_DURATION_FACTOR": 0.875,
+
+    # --- AMP ADSR --------------------------------------------------------
+    "ADSR_ATTACK_MIN": 0.018,
+    "ADSR_ATTACK_MAX": 0.155,
+    "ADSR_DECAY_MIN":  0.385,
+    "ADSR_DECAY_MAX":  60.0,
+    "ADSR_RELEASE_MIN": 0.1,
+    "ADSR_RELEASE_MAX": 1.13,
+    "ADSR_SUSTAIN_DB_MIN": -15.65,
+    "ADSR_SUSTAIN_DB_MAX": 0.0,
+
+    # --- LFO -------------------------------------------------------------
+    "LFO_RATE_HZ": 3.22,
+    "LFO_DEPTH_MIN_CENTS": 0.001,
+    "LFO_DEPTH_MAX_CENTS": 3.81,
+
+    # --- Tube drive ------------------------------------------------------
+    "TUBE_GAIN_MIN":  1.0,
+    "TUBE_GAIN_MAX":  3.0,
+    "TUBE_BIAS_MIN":  0.0,
+    "TUBE_BIAS_MAX":  0.2,
+    "TUBE_BLEND_MIN": 0.0,
+    "TUBE_BLEND_MAX": 0.5,
+
+    # --- Bit-crusher -----------------------------------------------------
+    "BITCRUSHER_BIT_DEPTH": 12,
+    "BITCRUSHER_DOWNSAMPLE_FACTOR": 3,
+    "BITCRUSHER_MIX_MAX": 0.25,
+
+    # --- Effects ---------------------------------------------------------
+    "EFFECTS_SMOOTHING": 0.005,
+
+    # --- Filter chain (primary / comb / global) -------------------------
+    # Primary
+    "FILTER_PRIMARY_CUTOFF_MIN_HZ": 20.0,
+    "FILTER_PRIMARY_CUTOFF_MAX_HZ": 20.0,
+    "FILTER_PRIMARY_RESONANCE_MIN_Q": 0.01,
+    "FILTER_PRIMARY_RESONANCE_MAX_Q": 3.6,
+    "FILTER_PRIMARY_DRIVE_MIN": 0.01,
+    "FILTER_PRIMARY_DRIVE_MAX": 2.7,
+    "FILTER_PRIMARY_DRIVE_CURVE": 0.3,
+    "FILTER_PRIMARY_ENVELOPE_AMOUNT_MIN": 0.12,
+    "FILTER_PRIMARY_ENVELOPE_AMOUNT_MAX": 0.0,
+
+    # Comb
+    "FILTER_COMB_DELAY_MIN_MS": 2,
+    "FILTER_COMB_DELAY_MAX_MS": 18,
+    "FILTER_COMB_FEEDBACK_MIN": 0.1,
+    "FILTER_COMB_FEEDBACK_MAX": 0.3,
+    "FILTER_COMB_CUTOFF_MIN_HZ": 47,
+    "FILTER_COMB_CUTOFF_MAX_HZ": 39.9,
+    "FILTER_COMB_RESONANCE_MIN_Q": 2.9,
+    "FILTER_COMB_RESONANCE_MAX_Q": 2.9,
+    "FILTER_COMB_ENVELOPE_AMOUNT_MIN": 1.0,
+    "FILTER_COMB_ENVELOPE_AMOUNT_MAX": 0.1,
+    "FILTER_COMB_DRIVE_MIN": 1.5,
+    "FILTER_COMB_DRIVE_MAX": 0.01,
+    "FILTER_COMB_DRIVE_CURVE": 0.5,
+
+    # Global
+    "FILTER_GLOBAL_CUTOFF_MIN_HZ": 85.6,
+    "FILTER_GLOBAL_CUTOFF_MAX_HZ": 296.0,
+    "FILTER_GLOBAL_RESONANCE_MIN_Q": 4,
+    "FILTER_GLOBAL_RESONANCE_MAX_Q": 0.01,
+
+    # Envelope
+    "FILTER_ENVELOPE_ATTACK_MIN_MS": 0.1,
+    "FILTER_ENVELOPE_ATTACK_MAX_MS": 1074,
+    "FILTER_ENVELOPE_DECAY_MIN_MS": 246.0,
+    "FILTER_ENVELOPE_DECAY_MAX_MS": 1816.0,
+    "FILTER_ENVELOPE_SUSTAIN_MIN_HZ": 20.0,
+    "FILTER_ENVELOPE_SUSTAIN_MAX_HZ": 22.53,
+    "FILTER_ENVELOPE_RELEASE_MIN_MS": 310.0,
+    "FILTER_ENVELOPE_RELEASE_MAX_MS": 12460.0,
+    "FILTER_ENVELOPE_RELEASE_TARGET_HZ": 50.0,
+
+    # Misc processing
+    "FILTER_NYQUIST_SAFETY_FACTOR": 0.9,
+    "FILTER_RESONANCE_THRESHOLD": 0.2,
+    "FILTER_RESONANCE_GAIN_SCALE": 8.0,
+    "FILTER_RESONANCE_Q_FIXED": 1.0,
+    "FILTER_GLOBAL_RESONANCE_THRESHOLD": 0.7,
+    "FILTER_GLOBAL_RESONANCE_GAIN_SCALE": 6.0,
+    "FILTER_GLOBAL_RESONANCE_Q": 1.5,
+    "FILTER_ENVELOPE_SMOOTH_SAMPLES": 32,
+}
+
+# ---------------------------------------------------------------------------
+# PATTERN MATRICES – EDIT THESE TO CHANGE THE MUSICAL PATTERNS
+# Each pattern is 16 steps (4 beats of 16-th notes).  The list index of every
+# matrix aligns with PATTERN_LABELS order.
+# ---------------------------------------------------------------------------
 
 ## PATTERN LABELS
 PATTERN_LABELS = [
@@ -129,12 +231,6 @@ PATTERN_LABELS = [
     "HappyLevel1", "HappyLevel2", "HappyLevel3", "HappyLevel4",
     "HappyLevel5", "HappyLevel6", "HappyLevel7", "HappyLevel8"
 ]
-
-# ---------------------------------------------------------------------------
-# PATTERN MATRICES – EDIT THESE TO CHANGE THE MUSICAL PATTERNS
-# Each pattern is 16 steps (4 beats of 16-th notes).  The list index of every
-# matrix aligns with PATTERN_LABELS order (SadLevel8 → HappyLevel8).
-# ---------------------------------------------------------------------------
 
 # Kick drum patterns (1 = kick, 0 = silence)
 KICK_PATTERNS = [
@@ -345,8 +441,14 @@ def update_bpm_from_slider(slider: float) -> float:
 
     Returns
     -------
+        # ------------------------------------------------------------------
+        # Fetch current slider value for all remaining per-note processing
+        # ------------------------------------------------------------------
+        with slider_val_lock:
+            slider = slider_val
+
     float
-        The BPM value to use for scheduling events this instant.
+        env, attack = self.adsr_envelope(total_samples, slider)
     """
     global current_bpm, start_bpm, target_bpm, ramp_start_time, ramp_duration
 
@@ -687,7 +789,7 @@ def play_kick_sample_with_delay_and_gain(label, delay_ms, gain_db):
             global_gain_db = slider_to_global_gain_db(slider)
             kick_boost_db = KICK_BOOST_DB        # extra punch for kicks
             total_gain_db = gain_db + global_gain_db + kick_boost_db
-            volume = 10 ** (total_gain_db / 20)
+            volume = DRUMS_MASTER_VOLUME * (10 ** (total_gain_db / 20))
             sound.set_volume(min(1.0, max(0.0, volume)))
             sound.play()
     threading.Thread(target=delayed_play).start()
@@ -704,7 +806,7 @@ def play_snare_with_delay_and_gain(label, delay_ms, gain_db):
 
             # Volume only (EQ already applied)
             total_gain_db = gain_db + slider_to_global_gain_db(slider)
-            volume = 10 ** (total_gain_db/20)
+            volume = DRUMS_MASTER_VOLUME * (10 ** (total_gain_db / 20))
             sound.set_volume(min(1.0, max(0.0, volume)))
             sound.play()
     threading.Thread(target=delayed_play).start()
@@ -721,7 +823,7 @@ def play_cymbal_with_delay_and_gain(label, delay_ms, gain_db):
 
             # Volume only (EQ already applied)
             total_gain_db = gain_db + slider_to_global_gain_db(slider)
-            volume = 10 ** (total_gain_db/20)
+            volume = DRUMS_MASTER_VOLUME * (10 ** (total_gain_db/20))
             sound.set_volume(min(1.0, max(0.0, volume)))
             sound.play()
     threading.Thread(target=delayed_play).start()
@@ -786,6 +888,38 @@ def trigger_drums_for_step(step: int,
 #        # For below-tonic notes look up the negative equivalent label
 #        return scale_degree_map.get(wrapped - 12, '?')
 
+# (formerly commented-out resonant filter moved to active section above)
+
+#def global_resonance_filter(wave, sample_rate,
+#                            freq=85.61, resonance=13.65):
+#    """Static resonant peak filter (legacy helper, not in current chain)."""
+#    q      = resonance / 10
+#    w0     = 2 * np.pi * freq / sample_rate
+#    alpha  = np.sin(w0) / (2 * q)
+#    b0, b2 =  alpha, -alpha
+#    a0     = 1 + alpha
+#    b      = np.array([b0, 0, b2]) / a0
+#    a      = np.array([1, -2*np.cos(w0)/a0, (1-alpha)/a0])
+#    return np.convolve(wave, b, 'same') - np.convolve(wave, a[1:], 'same')
+
+#def comb_filter_modulated(wave, sample_rate,
+#                          base_delay=1/47.1, feedback=0.3,
+#                          drive=1.1538, env_percent=1.0):
+#    """Simple feed-forward comb used for subtle body/chorus."""
+#    out           = np.copy(wave) * (1 + drive)
+#    delay_samples = int(sample_rate * base_delay)
+#    for i in range(delay_samples, len(wave)):
+#        out[i] += feedback * out[i - delay_samples]
+#    return out
+
+        # --- Comb filter (restored) ---------------------------------------
+#        combined_wave = comb_filter_modulated(
+#            combined_wave, sample_rate=self.sample_rate,
+#            base_delay=delay_time, feedback=feedback, drive=drive
+#        )
+
+
+
 
         # ===========================================================================#
         #                           S~E~Q~U~E~N~C~E~R                                #
@@ -849,263 +983,424 @@ def sequencer(stop_event):
         #                           S~Y~N~T~H~E~S~I~Z~E~R                            #
         # ===========================================================================#
 
-# SYNTH FX FUNCTIONS ---------------------------------------------------------------------
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
 
-def lowpass_filter_resonant(wave, cutoff_freqs, resonance, sample_rate, drive, low, band):
-    """
-    Stable state-variable low-pass filter with resonance.
-    Fixes previous crackle by:
-        1. Clamping cutoff to < Nyquist to avoid aliasing
-        2. Limiting resonance (feedback) to < 1.0 for stability
-        3. Applying drive once (vectorised) – avoids per-sample discontinuity
-        4. Clamping internal state (low / band) to prevent runaway build-up
-    """
-    # Pre-compute constants
-    cut = np.clip(cutoff_freqs, 0.0, sample_rate * 0.45)
-    f      = 2.0 * np.sin(np.pi * cut / sample_rate)
-    q      = np.clip(resonance, 0.0, 0.99)          # feedback <1 ⇒ stable
-    drive  = np.clip(drive, 0.1, 2.0)
-
-    # Apply drive once – cheaper & smoother than per-sample
-    driven_wave = np.tanh(wave * drive)
-
-    out = np.zeros_like(driven_wave)
-
-    for i in range(len(driven_wave)):
-        sample = driven_wave[i]
-
-        # State-variable equations
-        notch = sample - q * band
-        low  += f[i] * band
-        high  = notch - low
-        band += f[i] * high
-
-        # Clamp states to avoid numerical runaway
-        low  = np.clip(low,  -2.0, 2.0)
-        band = np.clip(band, -2.0, 2.0)
-
-        out[i] = low
-
-    return out, low, band
-
-def comb_filter_modulated(wave, sample_rate, base_delay=1/47.1, feedback=0.3, drive=1.1538, env_percent=1.0):
-    samples = len(wave)
-    out = np.copy(wave) * (1 + drive)
-    delay_samples = int(sample_rate * base_delay)
-    for i in range(delay_samples, samples):
-        out[i] += feedback * out[i - delay_samples]
-    return out
-
-def global_resonance_filter(wave, sample_rate, freq=85.61, resonance=13.65):
-    q = resonance / 10  
-    w0 = 2 * np.pi * freq / sample_rate
-    alpha = np.sin(w0) / (2 * q)
-
-    b0 = alpha
-    b1 = 0
-    b2 = -alpha
-    a0 = 1 + alpha
-    a1 = -2 * np.cos(w0)
-    a2 = 1 - alpha
-
-    b = np.array([b0, b1, b2]) / a0
-    a = np.array([1, a1 / a0, a2 / a0])
-
-    return np.convolve(wave, b, mode='same') - np.convolve(wave, a[1:], mode='same')
-
-def butter_lowpass(cutoff, fs, order=4):
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
+def butter_lowpass(cutoff: float, fs: int, order: int = 4):
+    nyq = 0.5 * fs                       # Nyquist frequency
+    normal_cutoff = cutoff / nyq         # Normalised cut-off (0‒1)
     b, a = butter(order, normal_cutoff, btype='low', analog=False)
     return b, a
 
-def butter_lowpass_filter(data, cutoff, fs, order=4):
-    b, a = butter_lowpass(cutoff, fs, order=order)
-    y = lfilter(b, a, data)
-    return y
+# ---------------------------------------------------------------------------
+# FILTER CHAIN HELPER FUNCTIONS
+# ---------------------------------------------------------------------------
 
-def slider_to_osc1_volume(slider):
-    # Interpolate dB from 0 dB at slider=0 to -40 dB at slider=1
-    # So at slider=0.5, db = -20 dB (halfway)
-    db = -40 * (slider) 
-    return 10 ** (db / 20)
+@dataclass
+class FilterParams:
+    """Container for all filter chain parameters."""
+    # Primary
+    primary_cutoff: float
+    primary_res_q: float
+    primary_env_amt: float
+    primary_drive: float
+    # Comb
+    comb_delay_ms: float
+    comb_feedback: float
+    comb_cutoff: float
+    comb_res_q: float
+    comb_env_amt: float
+    comb_drive: float
+    # Global
+    global_cutoff: float
+    global_res_q: float
+    # Processing constants
+    nyquist_safety_factor: float
+    resonance_threshold: float
+    resonance_gain_scale: float
+    resonance_q_fixed: float
+    global_resonance_threshold: float
+    global_resonance_gain_scale: float
+    global_resonance_q: float
 
-# Dummy freq_from_midi, slider_val, slider_val_lock, base_gain_db, slider_to_global_gain_db, slider_to_global_highshelf_db, slider_to_lowmid_db
-# These must be defined elsewhere in your full code as per original
+
+def _log_interp(v_min: float, v_max: float, t: float) -> float:
+    """Safe logarithmic interpolation with linear fallback."""
+    # Log interpolation if valid range, otherwise linear
+    if v_max > v_min and v_min > 0:
+        log_min = math.log(v_min)
+        log_max = math.log(v_max)
+        return math.exp(log_min + t * (log_max - log_min))
+    return v_min + (v_max - v_min) * t
+
+def calculate_filter_parameters(slider: float, config: dict) -> FilterParams:
+    """Compute every filter-chain parameter from a single slider (0‒1)."""
+
+    # Primary filter params - log scaled
+    primary_cutoff  = _log_interp(config['FILTER_PRIMARY_CUTOFF_MIN_HZ'],
+                                  config['FILTER_PRIMARY_CUTOFF_MAX_HZ'], slider)
+    primary_res_q   = _log_interp(config['FILTER_PRIMARY_RESONANCE_MIN_Q'],
+                                  config['FILTER_PRIMARY_RESONANCE_MAX_Q'], slider)
+    primary_env_amt = _log_interp(config['FILTER_PRIMARY_ENVELOPE_AMOUNT_MIN'],
+                                  config['FILTER_PRIMARY_ENVELOPE_AMOUNT_MAX'], slider)
+    primary_drive   = _log_interp(config['FILTER_PRIMARY_DRIVE_MIN'],
+                                  config['FILTER_PRIMARY_DRIVE_MAX'], slider)
+
+    # Comb filter params - log scaled (delay inverted)
+    comb_delay_ms = _log_interp(config['FILTER_COMB_DELAY_MIN_MS'],
+                                config['FILTER_COMB_DELAY_MAX_MS'], 1 - slider)
+    comb_feedback = _log_interp(config['FILTER_COMB_FEEDBACK_MIN'],
+                                config['FILTER_COMB_FEEDBACK_MAX'], slider)
+    comb_cutoff   = _log_interp(config['FILTER_COMB_CUTOFF_MIN_HZ'],
+                                config['FILTER_COMB_CUTOFF_MAX_HZ'], slider)
+    comb_res_q    = _log_interp(config['FILTER_COMB_RESONANCE_MIN_Q'],
+                                config['FILTER_COMB_RESONANCE_MAX_Q'], slider)
+    comb_env_amt  = _log_interp(config['FILTER_COMB_ENVELOPE_AMOUNT_MIN'],
+                                config['FILTER_COMB_ENVELOPE_AMOUNT_MAX'], slider)
+    comb_drive    = _log_interp(config['FILTER_COMB_DRIVE_MIN'],
+                                config['FILTER_COMB_DRIVE_MAX'], slider)
+
+    # Global filter params - log scaled
+    global_cutoff = _log_interp(config['FILTER_GLOBAL_CUTOFF_MIN_HZ'],
+                                config['FILTER_GLOBAL_CUTOFF_MAX_HZ'], slider)
+    global_res_q  = _log_interp(config['FILTER_GLOBAL_RESONANCE_MIN_Q'],
+                                config['FILTER_GLOBAL_RESONANCE_MAX_Q'], slider)
+
+    return FilterParams(
+        primary_cutoff, primary_res_q, primary_env_amt, primary_drive,
+        comb_delay_ms, comb_feedback, comb_cutoff, comb_res_q,
+        comb_env_amt, comb_drive,
+        global_cutoff, global_res_q,
+        nyquist_safety_factor=config['FILTER_NYQUIST_SAFETY_FACTOR'],
+        resonance_threshold=config['FILTER_RESONANCE_THRESHOLD'],
+        resonance_gain_scale=config['FILTER_RESONANCE_GAIN_SCALE'],
+        resonance_q_fixed=config['FILTER_RESONANCE_Q_FIXED'],
+        global_resonance_threshold=config['FILTER_GLOBAL_RESONANCE_THRESHOLD'],
+        global_resonance_gain_scale=config['FILTER_GLOBAL_RESONANCE_GAIN_SCALE'],
+        global_resonance_q=config['FILTER_GLOBAL_RESONANCE_Q']
+    )
+
+def apply_primary_filter(sig: np.ndarray, params: FilterParams,
+                         filter_envelope: np.ndarray,
+                         sample_rate: int) -> np.ndarray:
+    """Primary LPF + resonance + drive."""
+    nyq = 0.5 * sample_rate
+    # Envelope modulates cutoff frequency
+    mod_cut = params.primary_cutoff + (filter_envelope - 20.0) * params.primary_env_amt
+    mod_cut = np.clip(mod_cut, 20.0, nyq * params.nyquist_safety_factor)
+    avg_cut = float(np.mean(mod_cut))
+
+    # 2-pole low-pass filter
+    b_lp, a_lp = butter(2, avg_cut / nyq, btype='low')
+    sig = lfilter(b_lp, a_lp, sig)
+
+    # Resonant peak if above threshold
+    if params.primary_res_q > params.resonance_threshold:
+        gain_db = (params.primary_res_q - params.resonance_threshold) * params.resonance_gain_scale
+        A = 10 ** (gain_db / 40)
+        w0 = 2 * math.pi * avg_cut / sample_rate
+        cos_w0 = math.cos(w0)
+        sin_w0 = math.sin(w0)
+        alpha = sin_w0 / (2 * params.resonance_q_fixed)
+        b0 = 1 + alpha * A
+        b1 = -2 * cos_w0
+        b2 = 1 - alpha * A
+        a0 = 1 + alpha / A
+        a1 = -2 * cos_w0
+        a2 = 1 - alpha / A
+        sig = lfilter([b0/a0, b1/a0, b2/a0],
+                      [1.0, a1/a0, a2/a0], sig)
+
+    # Soft drive / saturation
+    if params.primary_drive > 1.0:
+        sig = np.tanh(sig * params.primary_drive) / params.primary_drive
+    return sig
+
+def apply_comb_filter(sig: np.ndarray, params: FilterParams,
+                      filter_envelope: np.ndarray,
+                      sample_rate: int) -> np.ndarray:
+    """Enhanced ANA2-style comb filter."""
+    nyq = 0.5 * sample_rate
+    delay_samp = max(1, int(sample_rate * params.comb_delay_ms / 1000))
+    if delay_samp >= len(sig):
+        return sig
+
+    # Envelope modulates comb cutoff
+    comb_mod_cut = params.comb_cutoff + (filter_envelope - 20.0) * params.comb_env_amt
+    comb_mod_cut = np.clip(comb_mod_cut, 20.0, nyq * params.nyquist_safety_factor)
+    comb_avg_cut = float(np.mean(comb_mod_cut))
+
+    # Pre-filter before delay line
+    b_pre, a_pre = butter(2, comb_avg_cut / nyq, btype='low')
+    proc = lfilter(b_pre, a_pre, sig)
+
+    # Drive saturation before delay
+    if params.comb_drive > 1.0:
+        proc = np.tanh(proc * params.comb_drive) / params.comb_drive
+
+    # Delay + feedback loop
+    out = proc.copy()
+    for i in range(delay_samp, len(proc)):
+        out[i] += params.comb_feedback * out[i - delay_samp]
+
+    # Optional resonance peak on output
+    if params.comb_res_q > 0.2:
+        gain_db = (params.comb_res_q - 0.2) * 6.0
+        A = 10 ** (gain_db / 40)
+        w0 = 2 * math.pi * comb_avg_cut / sample_rate
+        cos_w0 = math.cos(w0)
+        sin_w0 = math.sin(w0)
+        alpha = sin_w0 / 2
+        b0 = 1 + alpha * A
+        b1 = -2 * cos_w0
+        b2 = 1 - alpha * A
+        a0 = 1 + alpha / A
+        a1 = -2 * cos_w0
+        a2 = 1 - alpha / A
+        out = lfilter([b0/a0, b1/a0, b2/a0],
+                      [1.0, a1/a0, a2/a0], out)
+    return out
+
+def apply_global_filter(sig: np.ndarray, params: FilterParams,
+                        sample_rate: int) -> np.ndarray:
+    """Global LPF + resonance peak."""
+    nyq = 0.5 * sample_rate
+    
+    # Global lowpass filter
+    b_lp, a_lp = butter(2, params.global_cutoff / nyq, btype='low')
+    sig = lfilter(b_lp, a_lp, sig)
+
+    # Global resonance peak if above threshold
+    if params.global_res_q > params.global_resonance_threshold:
+        gain_db = (params.global_res_q - params.global_resonance_threshold) * params.global_resonance_gain_scale
+        A = 10 ** (gain_db / 40)
+        w0 = 2 * math.pi * params.global_cutoff / sample_rate
+        cos_w0 = math.cos(w0)
+        sin_w0 = math.sin(w0)
+        alpha = sin_w0 / (2 * params.global_resonance_q)
+        b0 = 1 + alpha * A
+        b1 = -2 * cos_w0
+        b2 = 1 - alpha * A
+        a0 = 1 + alpha / A
+        a1 = -2 * cos_w0
+        a2 = 1 - alpha / A
+        sig = lfilter([b0/a0, b1/a0, b2/a0],
+                      [1.0, a1/a0, a2/a0], sig)
+    return sig
+
+# ---------------------------------------------------------------------------
+# FILTER CHAIN
+# ---------------------------------------------------------------------------
+
+def filter_chain(wave: np.ndarray,
+                 filter_envelope: np.ndarray,
+                 slider: float,
+                 sample_rate: int,
+                 config: dict) -> np.ndarray:
+
+    if wave.size == 0:
+        return wave
+
+    # 1) Derive all parameters from slider ------------------------------
+    params = calculate_filter_parameters(slider, config)
+
+    # 2) Primary low-pass filter stage ----------------------------------
+    sig = apply_primary_filter(wave, params, filter_envelope, sample_rate)
+
+    # 3) Comb filter stage ----------------------------------------------
+    sig = apply_comb_filter(sig, params, filter_envelope, sample_rate)
+
+    # 4) Global low-pass (master filter) --------------------------------
+    sig = apply_global_filter(sig, params, sample_rate)
+
+    return sig
+
+# ---------------------------------------------------------------------------
+# EFFECTS FUNCTIONS
+# ---------------------------------------------------------------------------
 
 def tube_drive(signal, gain=3.0, bias=0.2, blend=0.5):
-    # Apply gain and bias
-    driven = gain * signal + bias
-    # Apply tanh for soft saturation
-    saturated = np.tanh(driven)
-    # Remove DC bias post-saturation
-    saturated -= np.mean(saturated)
-    # Blend dry and wet
+    """Symmetric tanh soft-clip with bias, blended dry/wet."""
+    driven     = gain * signal + bias
+    saturated  = np.tanh(driven) - np.mean(np.tanh(driven))
     return (1 - blend) * signal + blend * saturated
 
 def bitcrusher(signal, bit_depth=8, downsample_factor=4, mix=1.0):
-    max_int = 2 ** bit_depth - 1
-    crushed = np.floor((signal + 1) / 2 * max_int) / max_int * 2 - 1
-    crushed = crushed[::downsample_factor]
-    crushed = np.repeat(crushed, downsample_factor)
-    crushed = crushed[:len(signal)]
+    """Naïve bit-depth & down-sample crusher, blended dry/wet."""
+    max_int  = 2 ** bit_depth - 1
+    crushed  = np.floor((signal + 1) / 2 * max_int) / max_int * 2 - 1
+    crushed  = np.repeat(crushed[::downsample_factor], downsample_factor)
+    crushed  = crushed[:len(signal)]
     return (1 - mix) * signal + mix * crushed
 
+def final_lowpass(data: np.ndarray,
+                          cutoff: float,
+                          fs: int,
+                          order: int = 4) -> np.ndarray:
+    b, a = butter_lowpass(cutoff, fs, order=order)
+    return lfilter(b, a, data)
+
+# ---------------------------------------------------------------------------
+# ACTUAL SYNTH
+# ---------------------------------------------------------------------------
+
 class Synth:
-    def __init__(self, sample_rate, buffer_size=1024):
-        self.sample_rate = sample_rate
-        self.buffer_size = buffer_size
-        self.p = pyaudio.PyAudio()
-        self.stream = self.p.open(format=pyaudio.paFloat32,
-                                  channels=1,
-                                  rate=sample_rate,
-                                  output=True,
-                                  frames_per_buffer=buffer_size)
-        self.lock = threading.Lock()
-        self.active_notes = []  
-        self.note_queue = []    
-        self.thread = threading.Thread(target=self.run, daemon=True)
+    
+    # ------------------------------------------------------------------
+    # INITIALIZER
+    # ------------------------------------------------------------------
+    def __init__(self, sample_rate,
+                 buffer_size: int = 1024,
+                 sample_path: str | None = None,
+                 waveform_type: int | None = None,
+                 config: dict | None = None):
+        self.sample_rate = sample_rate              # Audio samples per second
+        self.buffer_size = buffer_size              # Audio chunk size
+        # ---------------- CONFIG DICTIONARY --------------------------
+        # Allows each Synth instance to use its own parameter set
+        self.config = config or BASS_CONFIG
+
+        self.p = pyaudio.PyAudio()                  # Audio driver connection
+        self.stream = self.p.open(                  # Audio output stream
+            format=pyaudio.paFloat32,
+            channels=1,
+            rate=sample_rate,
+            output=True,
+            frames_per_buffer=buffer_size
+        )
+        self.lock = threading.Lock()                # Thread safety lock
+        self.active_notes = []                      # Currently playing notes
+        self.note_queue = []                        # Notes waiting to play
+        self.thread = threading.Thread(             # Background audio engine
+            target=self.run, daemon=True
+        )
         self.thread.start()
-        self.osc1_volume = 1.0  
-        self.master_volume = 1.0  # full volume by default
-        self.prev_resonance = None
-        self.lowpass_low = 0.0
-        self.lowpass_band = 0.0
+        self.osc1_volume = 1.0                      # FM oscillator volume
+        self.master_volume = 1.0                    # Overall output volume
+        self.prev_resonance = None                  # Previous resonance value
+        self.lowpass_low = 0.0                      # Filter low state
+        self.lowpass_band = 0.0                     # Filter band state
 
+        # --------------------------------------------------------------
+        # LOAD BASS SAMPLE (configurable per-instance with error handling)
+        # --------------------------------------------------------------
+        self.has_sample = False                       # track successful load
 
+        if sample_path is None:
+            sample_path = DEFAULT_BASS_SAMPLE_PATH
 
+        try:
+            # --- Attempt to read the sample file ----------------------
+            self.sample_wave, self.sample_rate_wave = sf.read(
+                sample_path, dtype='float32'
+            )
 
-        self.sample_wave, self.sample_rate_wave = sf.read('ProgrammableLoop2/ProgrammableLoop2BassSynthOscillatorSample.wav', dtype='float32')
+            # Convert stereo → mono if required
+            if self.sample_wave.ndim > 1:
+                self.sample_wave = np.mean(self.sample_wave, axis=1)
 
-        # Convert stereo to mono if needed
-        if self.sample_wave.ndim > 1:
-            self.sample_wave = np.mean(self.sample_wave, axis=1)
+            # Optional leading-edge trim to remove clicks
+            trim_ms = BASS_SAMPLE_TRIM_MS
+            trim_samples = int(self.sample_rate_wave * trim_ms / 1000)
+            self.sample_wave = self.sample_wave[trim_samples:]
 
-        # Optional trim
-        trim_ms = 10
-        trim_samples = int(self.sample_rate_wave * trim_ms / 1000)
-        self.sample_wave = self.sample_wave[trim_samples:]
+            self.has_sample = True
+            print(f"✓ Sample loaded: {sample_path}")
 
-        
+        except Exception as e:
+            # ----------------------------------------------------------
+            # Graceful fallback: FM-only synth (no sample oscillator)
+            # ----------------------------------------------------------
+            print(f"⚠️  Could not load sample '{sample_path}': {e}")
+            print("⚠️  Falling back to FM-only synth (no sample oscillator).")
+
+            self.sample_wave = np.array([], dtype=np.float32)
+            self.sample_rate_wave = self.sample_rate
+            self.has_sample = False
+
+        # --------------------------------------------------------------
+        # WAVEFORM TYPE (sine / triangle / square)
+        # --------------------------------------------------------------
+        # Falls back to global default if not explicitly provided
+        self.waveform_type = (
+            waveform_type
+            if waveform_type is not None
+            else self.config['DEFAULT_WAVEFORM_TYPE']
+        )
+
+    # ------------------------------------------------------------------
+    # SIGNAL CHAIN
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # OSC-1 VOLUME MAPPER  (moved from global-scope)
+    # ------------------------------------------------------------------
+    def slider_to_osc1_volume(self, slider: float) -> float:
+        """
+        Map slider position (0‒1) to a **linear** amplitude value for the
+        first oscillator using this synth’s configuration.
+        """
+        db_range      = self.config['OSC1_VOLUME_DB_RANGE']
+        db_conversion = self.config['OSC1_VOLUME_DB_CONVERSION']
+        db = -db_range * slider
+        return 10 ** (db / db_conversion)
+
+    # Clamp Volume for even mix of oscillators
     def set_master_volume(self, volume):
         # Clamp volume between 0.0 and 1.0
         self.master_volume = max(0.0, min(volume, 1.0))
 
+    # PURE WAVE OSCILLATOR
     def lfo(self, rate, depth_cents, carrier_freq, duration):
         samples = int(self.sample_rate * duration)
         t = np.linspace(0, duration, samples, endpoint=False)
         depth = carrier_freq * (2 ** (depth_cents / 1200) - 1)
         return np.sin(2 * np.pi * rate * t) * depth
-
-    def fm_wave(self, carrier_freq, mod_freq, mod_index, duration, lfo_wave=None):
+    def pure_wave_oscillator(self,
+                             carrier_freq: float,
+                             mod_freq: float,
+                             mod_index: float,
+                             duration: float,
+                             waveform_type: int = WAVEFORM_SINE,
+                             lfo_wave: np.ndarray | None = None) -> np.ndarray:
         samples = int(self.sample_rate * duration)
         t = np.linspace(0, duration, samples, endpoint=False)
 
-        if lfo_wave is None:
-            modulated_carrier_freq = carrier_freq
-        else:
-            modulated_carrier_freq = carrier_freq + lfo_wave
+        # Apply LFO
+        modulated_carrier = carrier_freq if lfo_wave is None else carrier_freq + lfo_wave
 
+        # FM modulator (0 → pure tone)
         modulator = np.sin(2 * np.pi * mod_freq * t)
-        wave = np.sin(2 * np.pi * modulated_carrier_freq * t + mod_index * modulator).astype(np.float32)
-        return wave
+        phase = 2 * np.pi * modulated_carrier * t + mod_index * modulator
 
+        # ----------- BASE WAVEFORM SELECTION --------------------------
+        if waveform_type == WAVEFORM_SQUARE:
+            # Square: sign of sine → {-1, 1}
+            base_wave = np.sign(np.sin(phase))
+        elif waveform_type == WAVEFORM_TRIANGLE:
+            # Triangle: scaled arcsin(sin) → [-1, 1]
+            base_wave = (2 / np.pi) * np.arcsin(np.sin(phase))
+        else:
+            # Default SINE
+            base_wave = np.sin(phase)
 
-    def adsr_envelope(self, length, slider, decay=0.385, sustain_level=0.17, release=1.13):
-        min_attack = 0.018  # 18 ms
-        max_attack = 0.155  # 155 ms
-        # Logarithmic interpolation
-        attack = max_attack * (min_attack / max_attack) ** slider
+        wave = base_wave
+        return wave.astype(np.float32)
 
-        attack_samples = max(1, int(self.sample_rate * attack))
-        min_decay = 0.385     # 385 ms
-        max_decay = 60.0      # 60000 ms = 60 s
-        decay = min_decay * (max_decay / min_decay) ** slider  # logarithmic interpolation
-        decay_samples = max(1, int(self.sample_rate * decay))
-
-        min_release = 0.1   # 100 ms
-        max_release = 1.13  # 1130 ms
-        release = max_release * (min_release / max_release) ** slider  # logarithmic interpolation
-        release_samples = max(1, int(self.sample_rate * release))
-
-        sustain_samples = max(0, length - attack_samples - decay_samples - release_samples)
-
-        total_samples = attack_samples + decay_samples + sustain_samples + release_samples
-        diff = length - total_samples
-        if diff > 0:
-            sustain_samples += diff
-        elif diff < 0:
-            sustain_samples = max(0, sustain_samples + diff)
-
-        attack_env = np.linspace(0, 1, attack_samples, endpoint=False)
-        min_db = -15.65
-        max_db = 0.0
-        sustain_level_db = min_db + (max_db - min_db) * slider  # linear in dB space
-        sustain_level = 10 ** (sustain_level_db / 20)
-
-
-        decay_env = np.linspace(1, sustain_level, decay_samples, endpoint=False)
-        sustain_env = np.full(sustain_samples, sustain_level)
-
-        release_env = np.linspace(sustain_level, 0, release_samples, endpoint=True)
-
-        envelope = np.concatenate([attack_env, decay_env, sustain_env, release_env])
-
-        if len(envelope) < length:
-            envelope = np.append(envelope, 0)
-        elif len(envelope) > length:
-            envelope = envelope[:length]
-
-        assert len(envelope) == length, f"Envelope length {len(envelope)} != expected {length}"
-        return envelope, attack
-
-    def filter_envelope(self, length, peak_freq=22.53, sustain_freq=20, slider=0.0):
-        # Logarithmic attack time: 1.074s → ~0s
-        min_attack = 1e-5
-        max_attack = 1.074
-        log_min_attack = np.log(min_attack)
-        log_max_attack = np.log(max_attack)
-        attack = np.exp(log_max_attack * (1 - slider) + log_min_attack * slider)
-
-        # Logarithmic decay time: 0.246s → 1.816s
-        min_decay = 0.246
-        max_decay = 1.816
-        log_min_decay = np.log(min_decay)
-        log_max_decay = np.log(max_decay)
-        decay = np.exp(log_min_decay * (1 - slider) + log_max_decay * slider)
-
-        # Logarithmic release time: 0.31s → 12.46s
-        min_release = 0.31
-        max_release = 12.46
-        log_min_release = np.log(min_release)
-        log_max_release = np.log(max_release)
-        release = np.exp(log_min_release * (1 - slider) + log_max_release * slider)
-
-        attack_samples = int(self.sample_rate * attack)
-        decay_samples = int(self.sample_rate * decay)
-        release_samples = int(self.sample_rate * release)
-        sustain_samples = max(0, length - attack_samples - decay_samples - release_samples)
-
-        mod_range = 0.1265 * sustain_freq
-        peak_freq = sustain_freq + mod_range
-        attack_env = np.linspace(sustain_freq, peak_freq, attack_samples, endpoint=False)
-        decay_env = np.linspace(peak_freq, sustain_freq, decay_samples, endpoint=False)
-        sustain_env = np.full(sustain_samples, sustain_freq)
-        release_env = np.linspace(sustain_freq, 50, release_samples, endpoint=True)
-
-        env = np.concatenate([attack_env, decay_env, sustain_env, release_env])
-        if len(env) < length:
-            env = np.pad(env, (0, length - len(env)), 'edge')
-        return env
-
-
-
-
+    # SAMPLE OSCILLATOR
     def sample_oscillator(self, duration, midi_note):
-        base_midi_note = 36  # root of the original sample
+        # If no sample:
+        if not self.has_sample or self.sample_wave.size == 0:
+            total_samples = int(self.sample_rate * duration)
+            return np.zeros(total_samples, dtype=np.float32)
+
+        # SAMPLE-OSCILLATOR PATH
+        base_midi_note = BASE_MIDI_NOTE  # Root note from config
         semitone_diff = midi_note - base_midi_note
         playback_rate = 2 ** (semitone_diff / 12)
 
+        # ---------------------- RESAMPLING -----------------------------
         if self.sample_rate_wave != self.sample_rate:
             factor = len(self.sample_wave) * self.sample_rate / self.sample_rate_wave
             resampled = np.interp(
@@ -1116,7 +1411,7 @@ class Synth:
         else:
             resampled = self.sample_wave
 
-        # Apply pitch shifting by changing the playback rate
+        # Pitch-shift by altering playback rate
         new_len = int(len(resampled) / playback_rate)
         resampled = np.interp(
             np.linspace(0, len(resampled), new_len, endpoint=False),
@@ -1124,389 +1419,441 @@ class Synth:
             resampled
         )
 
-        # Latency compensation
-        latency_ms = 0.7  # try tuning this value by ear
+        # -------------------- LATENCY COMP -----------------------------
+        latency_ms = SAMPLE_LATENCY_COMP_MS   # Latency compensation from config
         latency_samples = int(self.sample_rate * latency_ms / 1000)
-
         if len(resampled) > latency_samples:
             resampled = resampled[latency_samples:]
         else:
             resampled = np.zeros_like(resampled)
 
-        # Create output buffer for the full duration
+        # ------------------ LOOP & CROSSFADE ---------------------------
         total_samples = int(self.sample_rate * duration)
         output = np.zeros(total_samples, dtype=np.float32)
-        
-        # If the sample is shorter than needed, use crossfading to loop it
+
         if len(resampled) < total_samples:
-            # Define crossfade window (in samples)
-            crossfade_samples = min(100, len(resampled) // 4)  # 100 samples or 1/4 of sample length
-            
-            # Create crossfade windows
-            fade_in = np.linspace(0, 1, crossfade_samples)
-            fade_out = np.linspace(1, 0, crossfade_samples)
-            
-            # Fill output buffer with crossfaded loops
+            crossfade_samples = min(100, len(resampled) // 4)  # X-fade size
+            fade_in  = np.linspace(0, 1, crossfade_samples)    # Fade-in curve
+            fade_out = np.linspace(1, 0, crossfade_samples)    # Fade-out curve
+
             position = 0
             while position < total_samples:
-                # Calculate how much of the sample we can copy
-                samples_to_copy = min(len(resampled), total_samples - position)
-                
+                samples_to_copy = min(len(resampled),                # Chunk size
+                                      total_samples - position)
+
                 if position + samples_to_copy >= total_samples:
-                    # Last segment - just copy what's needed
-                    output[position:position+samples_to_copy] = resampled[:samples_to_copy]
+                    # Final chunk
+                    output[position:position + samples_to_copy] = resampled[:samples_to_copy]
                 else:
-                    # Not the last segment - apply crossfade
                     if position + len(resampled) <= total_samples:
-                        # Full sample fits
-                        output[position:position+len(resampled)] += resampled
-                        
-                        # Apply crossfade with next loop if there's room
+                        output[position:position + len(resampled)] += resampled  # Full copy
+
                         next_position = position + len(resampled) - crossfade_samples
                         if next_position + crossfade_samples <= total_samples:
-                            # Apply fade out to current loop end
-                            output[next_position:next_position+crossfade_samples] *= fade_out
-                            
-                            # Apply fade in to next loop start (if it fits)
+                            output[next_position:next_position + crossfade_samples] *= fade_out  # Fade current
+
                             if next_position + crossfade_samples + len(resampled) <= total_samples:
-                                # Apply fade in to beginning of next loop
                                 next_loop_start = next_position + crossfade_samples
-                                output[next_loop_start:next_loop_start+crossfade_samples] += resampled[:crossfade_samples] * fade_in
+                                output[next_loop_start:next_loop_start + crossfade_samples] += (  # Fade next
+                                    resampled[:crossfade_samples] * fade_in)
                     else:
-                        # Only part of the sample fits
-                        samples_remaining = total_samples - position
+                        samples_remaining = total_samples - position  # Tail part
                         output[position:] += resampled[:samples_remaining]
-                
-                position += len(resampled) - crossfade_samples  # Overlap by crossfade amount
+
+                position += len(resampled) - crossfade_samples        # Advance index
         else:
-            # Sample is longer than needed, just take what we need
-            output = resampled[:total_samples]
+            output = resampled[:total_samples]  # Trim excess
 
         return output
 
+    # ADSR ENVELOPE
+    def adsr_envelope(self,
+                      length: int,
+                      slider: float,
+                      decay: float | None = None,
+                      sustain_level: float | None = None,
+                      release: float | None = None):
+        """Generate ADSR envelope – ranges come from CONFIG constants."""
+
+        # ----------- CONFIG-DRIVEN RANGES -----------------------------
+        min_attack   = self.config['ADSR_ATTACK_MIN']
+        max_attack   = self.config['ADSR_ATTACK_MAX']
+        min_decay    = self.config['ADSR_DECAY_MIN']
+        max_decay    = self.config['ADSR_DECAY_MAX']
+        min_release  = self.config['ADSR_RELEASE_MIN']
+        max_release  = self.config['ADSR_RELEASE_MAX']
+        min_db       = self.config['ADSR_SUSTAIN_DB_MIN']
+        max_db       = self.config['ADSR_SUSTAIN_DB_MAX']
+
+        # ----------- TIME INTERPOLATION (log) -------------------------
+        attack_time   = max_attack * (min_attack / max_attack) ** slider
+        decay_time    = min_decay  * (max_decay  / min_decay)  ** slider
+        release_time  = max_release * (min_release / max_release) ** slider
+
+        attack_samples  = max(1, int(self.sample_rate * attack_time))
+        decay_samples   = max(1, int(self.sample_rate * decay_time))
+        release_samples = max(1, int(self.sample_rate * release_time))
+
+        sustain_samples = max(0, length - attack_samples - decay_samples - release_samples)
+
+        # Length adjust (rounding safety)
+        total = attack_samples + decay_samples + sustain_samples + release_samples
+        diff  = length - total
+        if diff > 0:
+            sustain_samples += diff
+        elif diff < 0:
+            sustain_samples = max(0, sustain_samples + diff)
+
+        # ----------- BUILD ENVELOPE SEGMENTS --------------------------
+        attack_env = np.linspace(0.0, 1.0, attack_samples, endpoint=False)
+
+        sustain_db   = min_db + (max_db - min_db) * slider
+        sustain_lin  = 10 ** (sustain_db / 20)
+
+        decay_env    = np.linspace(1.0, sustain_lin, decay_samples, endpoint=False)
+        sustain_env  = np.full(sustain_samples, sustain_lin, dtype=np.float32)
+        release_env  = np.linspace(sustain_lin, 0.0, release_samples, endpoint=True)
+
+        envelope = np.concatenate((attack_env, decay_env, sustain_env, release_env))
+
+        # Pad / trim (floating-point rounding)
+        if len(envelope) < length:
+            envelope = np.pad(envelope, (0, length - len(envelope)),
+                              mode='constant', constant_values=0.0)
+        elif len(envelope) > length:
+            envelope = envelope[:length]
+
+        assert len(envelope) == length, (
+            f"Envelope length {len(envelope)} != expected {length}"
+        )
+        return envelope, attack_time
+
+    # FILTER ENVELOPE
+    def filter_envelope(self, length, peak_freq=None, sustain_freq=None, slider=0.0):
+        """Generate filter-cutoff envelope fully driven by CONFIG."""
+
+        # ------------------- FREQUENCY RANGES ------------------------
+        sustain_hz = (
+            self.config['FILTER_ENVELOPE_SUSTAIN_MIN_HZ'] +
+            (self.config['FILTER_ENVELOPE_SUSTAIN_MAX_HZ'] - self.config['FILTER_ENVELOPE_SUSTAIN_MIN_HZ']) * slider
+        )
+        peak_hz = sustain_hz + sustain_hz * 0.1265   # 12.65 % upward swing
+        release_target_hz = self.config['FILTER_ENVELOPE_RELEASE_TARGET_HZ']
+
+        # -------------------- TIME RANGES (s) ------------------------
+        min_attack_s  = self.config['FILTER_ENVELOPE_ATTACK_MIN_MS']   / 1000.0
+        max_attack_s  = self.config['FILTER_ENVELOPE_ATTACK_MAX_MS']   / 1000.0
+        min_decay_s   = self.config['FILTER_ENVELOPE_DECAY_MIN_MS']    / 1000.0
+        max_decay_s   = self.config['FILTER_ENVELOPE_DECAY_MAX_MS']    / 1000.0
+        min_release_s = self.config['FILTER_ENVELOPE_RELEASE_MIN_MS']  / 1000.0
+        max_release_s = self.config['FILTER_ENVELOPE_RELEASE_MAX_MS']  / 1000.0
+
+        # Log-interpolated times
+        attack_time  = max_attack_s * (min_attack_s  / max_attack_s)  ** slider
+        decay_time   = min_decay_s  * (max_decay_s   / min_decay_s)   ** slider
+        release_time = min_release_s * (max_release_s / min_release_s) ** slider
+
+        # ------------------ SAMPLE COUNTS ----------------------------
+        attack_samples  = max(1, int(self.sample_rate * attack_time))
+        decay_samples   = max(1, int(self.sample_rate * decay_time))
+        release_samples = max(1, int(self.sample_rate * release_time))
+        sustain_samples = max(0, length - attack_samples - decay_samples - release_samples)
+
+        # Adjust rounding errors
+        total = attack_samples + decay_samples + sustain_samples + release_samples
+        diff  = length - total
+        if diff > 0:
+            sustain_samples += diff
+        elif diff < 0:
+            sustain_samples = max(0, sustain_samples + diff)
+
+        # ------------------ BUILD SEGMENTS ---------------------------
+        attack_env  = np.linspace(sustain_hz, peak_hz, attack_samples,  endpoint=False)
+        decay_env   = np.linspace(peak_hz,   sustain_hz, decay_samples, endpoint=False)
+        sustain_env = np.full(sustain_samples, sustain_hz, dtype=np.float32)
+        release_env = np.linspace(sustain_hz, release_target_hz, release_samples, endpoint=True)
+
+        envelope = np.concatenate((attack_env, decay_env, sustain_env, release_env))
+
+        # Ensure exact length
+        if len(envelope) < length:
+            envelope = np.pad(envelope, (0, length - len(envelope)), mode='edge')
+        elif len(envelope) > length:
+            envelope = envelope[:length]
+
+        return envelope
+
+    # Queue up notes
     def schedule_note(self, start_time, midi_note, duration):
         with self.lock:
             self.note_queue.append((start_time, midi_note, duration))
 
+    # OSCILLATOR GENERATION
+    def _generate_oscillators(self, midi_note: int,
+                              duration: float) -> tuple[np.ndarray, np.ndarray]:
+        """Generate and mix FM + Sample oscillators with smoothed volumes.
+        Optimised to skip oscillator generation when their volumes
+        would fall below a negligible threshold.
+        """
+        freq = freq_from_midi(midi_note)
+        total_samples = int(self.sample_rate * duration)
+
+        # ---- Fetch current slider positions ---------------------------
+        with slider_val_lock:
+            osc1_slider = slider_val    # controls FM amount
+            slider       = slider_val    # overall tonal slider
+
+        # ---- Desired target volumes  ----------------------------------
+        target_osc1_vol = self.slider_to_osc1_volume(osc1_slider)
+        target_sample_vol_db = -40 * ((1 - slider) ** 4)
+        target_sample_vol = 10 ** (target_sample_vol_db / 20)
+
+        SILENCE_THRESHOLD = 0.01        # below ‑40 dB ≈ silent
+        smoothing = 0.5                 # volume-crossfade smoothing
+
+        # Ensure previous-volume attrs exist
+        if not hasattr(self, 'prev_osc1_volume'):
+            self.prev_osc1_volume = 0.0
+        if not hasattr(self, 'prev_sample_volume'):
+            self.prev_sample_volume = 0.0
+
+        # ---- Initialise output buffer ---------------------------------
+        combined_wave = np.zeros(total_samples, dtype=np.float32)
+
+        # ----------------------------------------------------------------
+        # 1) PURE WAVE OSCILLATOR
+        # ----------------------------------------------------------------
+        if target_osc1_vol > SILENCE_THRESHOLD:
+            mod_freq  = freq * 2
+            mod_index = 0.0868 * (1 - osc1_slider)
+            fm_wave   = self.pure_wave_oscillator(freq,
+                                                 mod_freq,
+                                                 mod_index,
+                                                 duration,
+                                                 waveform_type=self.waveform_type)
+
+            # Smooth volume
+            self.prev_osc1_volume = ((1 - smoothing) * self.prev_osc1_volume
+                                     + smoothing * target_osc1_vol)
+            combined_wave += fm_wave * self.prev_osc1_volume
+        else:
+            # Decay stored volume towards zero for seamless fades
+            self.prev_osc1_volume *= (1 - smoothing)
+
+        # ----------------------------------------------------------------
+        # 2) SAMPLE OSCILLATOR  
+        # ----------------------------------------------------------------
+        if self.has_sample and target_sample_vol > SILENCE_THRESHOLD:
+            sample_wave = self.sample_oscillator(duration, midi_note)
+
+            # Smooth Sample volume
+            self.prev_sample_volume = ((1 - smoothing) * self.prev_sample_volume
+                                       + smoothing * target_sample_vol)
+            combined_wave += sample_wave * self.prev_sample_volume
+        else:
+            self.prev_sample_volume *= (1 - smoothing)
+
+        # ----------------------------------------------------------------
+        # 3) LFO
+        # ----------------------------------------------------------------
+        lfo_rate        = self.config['LFO_RATE_HZ']
+        min_depth_cents = self.config['LFO_DEPTH_MIN_CENTS']
+        max_depth_cents = self.config['LFO_DEPTH_MAX_CENTS']
+        lfo_depth_cents = max_depth_cents * (min_depth_cents / max_depth_cents) ** slider
+        lfo_wave = self.lfo(lfo_rate, lfo_depth_cents, freq, duration)
+
+        return combined_wave, lfo_wave
+
+    # ENVELOPE APPLICATION
+    def _apply_envelopes(self,
+                         combined_wave: np.ndarray,
+                         duration: float,
+                         total_samples: int,
+                         slider: float) -> np.ndarray:
+        """
+        Apply ADSR amplitude envelope, generate / smooth filter-envelope and
+        run the full ANA2 filter chain (primary LPF → comb → global LPF).
+        """
+        # === Amplitude ADSR ===========================================
+        env, _ = self.adsr_envelope(total_samples, slider)
+        combined_wave *= env
+
+        # === Filter envelope (frequency) ==============================
+        filter_env = self.filter_envelope(total_samples,
+                                          peak_freq=22.53,
+                                          sustain_freq=20)
+        filter_env = filter_env * (1 - slider) + np.mean(filter_env) * slider
+
+        # Anti-crackle smoothing (tiny moving-average)
+        smooth_window = self.config['FILTER_ENVELOPE_SMOOTH_SAMPLES']
+        if smooth_window > 1:
+            kernel = np.ones(smooth_window, dtype=np.float32) / smooth_window
+            filter_env = np.convolve(filter_env, kernel, mode='same')
+
+        # Global Cutoff for Filter Envelope
+        log_min = np.log(self.config['FILTER_GLOBAL_CUTOFF_MIN_HZ'])
+        log_max = np.log(self.config['FILTER_GLOBAL_CUTOFF_MAX_HZ'])
+        target_cutoff = np.exp(log_min * (1 - slider) + log_max * slider)
+
+        # Smooth cutoff changes
+        if not hasattr(self, 'prev_global_cutoff'):
+            self.prev_global_cutoff = target_cutoff
+        else:
+            self.prev_global_cutoff = (
+                0.995 * self.prev_global_cutoff + 0.005 * target_cutoff
+            )
+        filter_env *= self.prev_global_cutoff / 20.0
+
+        # Gentle pre-clip to tame transients
+        combined_wave = np.tanh(combined_wave * 0.8) / 0.8
+
+        # Filter Chain
+        combined_wave = filter_chain(combined_wave,
+                                     filter_env,
+                                     slider,
+                                     self.sample_rate,
+                                     self.config)
+
+        # DC-blocking high-pass  (~20 Hz)
+        combined_wave = lfilter([1, -1], [1, -0.99], combined_wave)
+        return combined_wave
+
+    # EFFECTS CHAIN
+    def _apply_effects_chain(self,
+                             combined_wave: np.ndarray,
+                             lfo_wave: np.ndarray,
+                             slider: float) -> np.ndarray:
+        """
+        Apply LFO amplitude-modulation, tube-drive saturation and bit-crusher
+        with parameter smoothing.  All per-instance state is stored on *self*
+        so multiple Synth objects remain isolated.
+        """
+        # --- 1) LFO amplitude modulation ------------------------------
+        combined_wave *= (1 + lfo_wave)
+
+        # --- 2) Tube-drive saturation ---------------------------------
+        smoothing = self.config['EFFECTS_SMOOTHING']
+        if not hasattr(self, 'prev_tube_gain'):
+            self.prev_tube_gain  = 1.0
+            self.prev_tube_bias  = 0.0
+            self.prev_tube_blend = 0.0
+
+        target_gain  = 1.0 + (self.config['TUBE_GAIN_MAX'] - self.config['TUBE_GAIN_MIN']) * (slider ** 2)
+        target_bias  = self.config['TUBE_BIAS_MAX'] * (slider ** 1.5)
+        target_blend = self.config['TUBE_BLEND_MAX'] * (slider ** 0.5)
+
+        self.prev_tube_gain  = ((1 - smoothing) * self.prev_tube_gain
+                                + smoothing * target_gain)
+        self.prev_tube_bias  = ((1 - smoothing) * self.prev_tube_bias
+                                + smoothing * target_bias)
+        self.prev_tube_blend = ((1 - smoothing) * self.prev_tube_blend
+                                + smoothing * target_blend)
+
+        combined_wave = tube_drive(combined_wave,
+                                   gain=self.prev_tube_gain,
+                                   bias=self.prev_tube_bias,
+                                   blend=self.prev_tube_blend)
+
+        # --- 3) Bit-crusher -------------------------------------------
+        if not hasattr(self, 'prev_bitcrusher_mix'):
+            self.prev_bitcrusher_mix = 0.0
+
+        # Bitcrusher mix scales with slider (√response for finer control)
+        target_mix = self.config['BITCRUSHER_MIX_MAX'] * (slider ** 0.5)
+        self.prev_bitcrusher_mix = ((1 - smoothing) * self.prev_bitcrusher_mix
+                                    + smoothing * target_mix)
+
+        combined_wave = bitcrusher(combined_wave,
+                                   bit_depth=self.config['BITCRUSHER_BIT_DEPTH'],
+                                   downsample_factor=self.config['BITCRUSHER_DOWNSAMPLE_FACTOR'],
+                                   mix=self.prev_bitcrusher_mix)
+        return combined_wave
+
+    # FINAL PROCESSING
+    def _apply_final_processing(self,
+                                combined_wave: np.ndarray,
+                                slider: float) -> np.ndarray:
+        """
+        Apply the final processing stage:
+          1. Smooth-param final low-pass filter
+          2. Short fade-out to avoid clicks
+          3. Global EQ (matches drum chain)
+          4. Hard-limiter & RMS normalisation
+          5. Master-volume scaling
+        """
+        # --- 1) Smooth final low-pass ---------------------------------
+        smoothing   = PARAMETER_SMOOTHING  # From config
+        log_min     = np.log(FINAL_FILTER_MIN_FREQ)
+        log_max     = np.log(FINAL_FILTER_MAX_FREQ)
+        target_cut  = np.exp(log_min * (1 - slider) + log_max * slider)
+
+        if not hasattr(self, "prev_cutoff"):
+            self.prev_cutoff = target_cut
+        self.prev_cutoff = (1 - smoothing) * self.prev_cutoff + smoothing * target_cut
+
+        combined_wave = final_lowpass(combined_wave,
+                                      cutoff=self.prev_cutoff,
+                                      fs=self.sample_rate,
+                                      order=4)
+
+        # --- 2) 10 ms fade-out ----------------------------------------
+        fade_samp = int(0.01 * self.sample_rate)
+        if fade_samp > 0 and len(combined_wave) > fade_samp:
+            combined_wave[-fade_samp:] *= np.linspace(1.0, 0.0, fade_samp)
+
+        # --- 3) Global EQ ---------------------------------------------
+        combined_wave = apply_global_eq_to_array(combined_wave, slider)
+
+        # --- 4) Limiter & RMS normalisation ---------------------------
+        combined_wave = np.clip(combined_wave, -0.95, 0.95)
+
+        def _norm_rms(buf: np.ndarray,
+                      target_rms: float = 0.1,
+                      eps: float = 1e-8) -> np.ndarray:
+            rms = np.sqrt(np.mean(buf ** 2)) + eps
+            return buf * (target_rms / rms)
+
+        combined_wave = _norm_rms(combined_wave)
+
+        # --- 5) Master volume ----------------------------------------
+        combined_wave *= self.master_volume
+
+        return combined_wave
+
+    # Actually Create The Note
     def render_note(self, midi_note, duration):
         freq = freq_from_midi(midi_note)
         total_samples = int(self.sample_rate * duration)
         if total_samples <= 0:
             return np.array([], dtype=np.float32)
 
-       # Existing FM sine oscillator wave
-        mod_freq = freq * 2
-        with slider_val_lock:
-            osc1_slider = slider_val
-        mod_index = 0.0868 * (1 - osc1_slider)  # Linear: 0.0868 at 0 slider, 0 at 1 slider
+        # Generate and mix oscillators (FM + Sample) and obtain LFO
+        combined_wave, lfo_wave = self._generate_oscillators(midi_note, duration)
 
-        # --- ORIGINAL FM SYNTHESIS (restored) -----------------------------
-        fm_wave = self.fm_wave(freq, mod_freq, mod_index, duration)
-        
-
-        lfo_rate = 3.22
-        min_depth = 0.001
-        max_depth = 3.81
-        with slider_val_lock:
-            s = slider_val
-        lfo_depth_cents = max_depth * (min_depth / max_depth) ** s
-        lfo_wave = self.lfo(lfo_rate, lfo_depth_cents, freq, duration)
-
-
-
-        # New sample oscillator wave
-        sample_wave = self.sample_oscillator(duration, midi_note)
-        with slider_val_lock:
-            slider = slider_val
-        
-        smoothing = 0.5  # adjust for transition speed
-
-        target_osc1_vol = slider_to_osc1_volume(osc1_slider)
-        target_sample_vol_db = -40 * ((1 - slider) ** 4)
-
-        target_sample_vol = 10 ** (target_sample_vol_db / 20)
-
-        if not hasattr(self, 'prev_osc1_volume'):
-            self.prev_osc1_volume = target_osc1_vol
-        if not hasattr(self, 'prev_sample_volume'):
-            self.prev_sample_volume = target_sample_vol
-
-        self.prev_osc1_volume = (1 - smoothing) * self.prev_osc1_volume + smoothing * target_osc1_vol
-        self.prev_sample_volume = (1 - smoothing) * self.prev_sample_volume + smoothing * target_sample_vol
-
-        fm_wave *= self.prev_osc1_volume
-        sample_wave *= self.prev_sample_volume
-
-        # Mix FM and sample oscillators
-        combined_wave = fm_wave + sample_wave
-
-
-        # ---------------- ADSR envelope (restored) ------------------------
-        env, attack = self.adsr_envelope(total_samples, slider)
-        combined_wave *= env
-        
-
+        # Get current slider value for all remaining per-note processing
         with slider_val_lock:
             slider = slider_val
 
-        # Store previous slider value and check for significant change
-        slider_threshold = 0.001
-        if not hasattr(self, 'prev_slider_cutoff'):
-            self.prev_slider_cutoff = slider
+        # ---------- NEW helper handles ADSR + filter chain --------------
+        combined_wave = self._apply_envelopes(combined_wave,
+                                              duration,
+                                              total_samples,
+                                              slider)
 
-        slider_changed = abs(slider - self.prev_slider_cutoff) > slider_threshold
-        self.prev_slider_cutoff = slider  # update stored slider
-
-        # Compute filter envelope
-        filter_env = self.filter_envelope(total_samples, peak_freq=22.53, sustain_freq=20)
-        filter_env = filter_env * (1 - slider) + np.mean(filter_env) * slider
-
-        # Compute target cutoff
-        log_min = np.log(85.61)
-        log_max = np.log(246)
-        target_global_cutoff = np.exp(log_min * (1 - slider) + log_max * slider)
-
-        # Smooth cutoff only if slider changed
-        if not hasattr(self, 'prev_global_cutoff'):
-            self.prev_global_cutoff = target_global_cutoff
-        elif slider_changed:
-            smoothing_factor = 0.005
-            self.prev_global_cutoff = (1 - smoothing_factor) * self.prev_global_cutoff + smoothing_factor * target_global_cutoff
-
-        # Apply smoothed cutoff
-        global_cutoff = self.prev_global_cutoff
-        filter_env *= global_cutoff / 20
-
-
-
-  
-
+        # Refresh slider in case it changed during envelope processing
         with slider_val_lock:
             slider = slider_val
 
-        resonance_threshold = 0.001
-        if not hasattr(self, 'prev_slider_resonance'):
-            self.prev_slider_resonance = slider
+        # Apply EFFECTS chain
+        combined_wave = self._apply_effects_chain(combined_wave,
+                                                  lfo_wave,
+                                                  slider)
 
-        slider_changed = abs(slider - self.prev_slider_resonance) > resonance_threshold
-        self.prev_slider_resonance = slider
-
-        # Far more conservative resonance range to avoid crackle
-        low_res = 0.1
-        high_res = 0.3
-        target_resonance = low_res + (high_res - low_res) * (slider ** 0.5)
-
-        if self.prev_resonance is None:
-            self.prev_resonance = target_resonance
-        elif slider_changed:
-            smoothing_factor = 0.005
-            self.prev_resonance = (1 - smoothing_factor) * self.prev_resonance + smoothing_factor * target_resonance
-
-        resonance = self.prev_resonance
-
-
-
-        with slider_val_lock:
-            slider = slider_val
-        # Disable drive boost entirely for stability
-        target_drive = 1.0
-
-        if not hasattr(self, 'prev_drive'):
-            self.prev_drive = target_drive
-        else:
-            smoothing_factor = 0.005  # adjust between 0.05 and 0.2 as needed
-            self.prev_drive = (1 - smoothing_factor) * self.prev_drive + smoothing_factor * target_drive
-
-        drive = self.prev_drive
-
-
-
-        # ------------------------------------------------------------------
-        # Anti-crackle processing
-        #   1.  Use *fresh* filter state every note (no carry-over).
-        #   2.  Gentle soft-limit before filtering to tame transients.
-        #   3.  Reduce drive for very long notes to avoid self-oscillation.
-        #   4.  DC-block afterwards to remove residual bias.
-        # ------------------------------------------------------------------
-
-        # Soft-limit the signal (gentler, lower gain factor)
-        combined_wave = np.tanh(combined_wave * 0.8) / 0.8
-
-        # Long notes ⇒ halve the drive
-        if duration > 2.0:
-            drive *= 0.5
-
-        # Local filter state (reset each call)
-        local_low, local_band = 0.0, 0.0
-
-        # ------------------------------------------------------------------
-        # SIMPLE FIX:
-        #   Replace crackle-prone resonant SVF with a single, stable
-        #   2-pole Butterworth low-pass once per note.  We use the *average*
-        #   of the dynamic filter-envelope as the cutoff for this note,
-        #   clamped safely below Nyquist.
-        # ------------------------------------------------------------------
-        avg_cutoff = float(np.clip(np.mean(filter_env),
-                                   20.0,
-                                   0.45 * self.sample_rate))
-        combined_wave = butter_lowpass_filter(
-            combined_wave,
-            cutoff=avg_cutoff,
-            fs=self.sample_rate,
-            order=2
-        )
-
-        # Simple DC-blocking high-pass (~20 Hz)
-        # Stronger DC-blocking
-        combined_wave = lfilter([1, -1], [1, -0.99], combined_wave)
-
-
-
-        with slider_val_lock:
-            slider = slider_val
-
-        # Define smoothing factor and threshold for slider changes
-        smoothing = 0.005
-        slider_threshold = 0.001  # tweak as needed
-
-        # Initialize previous slider and parameters on first run
-        if not hasattr(self, 'prev_slider'):
-            self.prev_slider = slider
-        if not hasattr(self, 'prev_comb_drive'):
-            self.prev_comb_drive = 0.15 * np.exp(-5 * slider)
-        if not hasattr(self, 'prev_delay_time'):
-            max_delay_s = 0.02
-            min_delay_s = 0.005
-            self.prev_delay_time = max_delay_s * (1 - slider) + min_delay_s * slider
-
-        target_drive = 0.15 * np.exp(-5 * slider)
-        self.prev_comb_drive = (1 - smoothing) * self.prev_comb_drive + smoothing * target_drive
-
-        max_delay_s = 0.02
-        min_delay_s = 0.005
-        target_delay = max_delay_s * (1 - slider) + min_delay_s * slider
-        self.prev_delay_time = (1 - smoothing) * self.prev_delay_time + smoothing * target_delay
-
-        self.prev_slider = slider
-
-
-        drive = self.prev_comb_drive
-        delay_time = self.prev_delay_time
-        feedback = 0.01  # fixed low feedback for chill effect
-
-        # --- Comb filter (restored) ---------------------------------------
-        combined_wave = comb_filter_modulated(
-            combined_wave, sample_rate=self.sample_rate,
-            base_delay=delay_time, feedback=feedback, drive=drive
-        )
-
-
-
-# ---------------- LFO amplitude modulation (restored) --------------------
-        combined_wave *= (1 + lfo_wave)  # subtle vibrato/AM
-
-        with slider_val_lock:
-            slider = slider_val
-
-        smoothing = 0.005
-
-        if not hasattr(self, 'prev_tube_gain'):
-            self.prev_tube_gain = 1.0
-        if not hasattr(self, 'prev_tube_bias'):
-            self.prev_tube_bias = 0.0
-        if not hasattr(self, 'prev_tube_blend'):
-            self.prev_tube_blend = 0.0
-
-        target_gain = 1.0 + (3.0 - 1.0) * (slider ** 2)
-        target_bias = 0.0 + 0.2 * (slider ** 1.5)
-        target_blend = 0.5 * (slider ** 0.5)
-
-        self.prev_tube_gain = (1 - smoothing) * self.prev_tube_gain + smoothing * target_gain
-        self.prev_tube_bias = (1 - smoothing) * self.prev_tube_bias + smoothing * target_bias
-        self.prev_tube_blend = (1 - smoothing) * self.prev_tube_blend + smoothing * target_blend
-
-        combined_wave = tube_drive(
-            combined_wave,
-            gain=self.prev_tube_gain,
-            bias=self.prev_tube_bias,
-            blend=self.prev_tube_blend
-        )
-
-
-        with slider_val_lock:
-            slider = slider_val
-
-        if slider < 0.001:
-            # Effect fully off, just pass through
-            combined_wave_processed = combined_wave
-        else:
-            smoothing = 0.005
-            min_mix = 0.0
-            max_mix = 0.25
-
-            if not hasattr(self, 'prev_bitcrusher_mix'):
-                self.prev_bitcrusher_mix = 0.0  # start fully off
-
-            target_mix = max_mix * (slider ** 0.5)
-
-            self.prev_bitcrusher_mix = (1 - smoothing) * self.prev_bitcrusher_mix + smoothing * target_mix
-
-            combined_wave_processed = bitcrusher(
-                combined_wave,
-                bit_depth=12,
-                downsample_factor=3,
-                mix=self.prev_bitcrusher_mix
-            )
-
-        combined_wave = combined_wave_processed
-
-        with slider_val_lock:
-            slider = slider_val
-
-        smoothing = 0.005
-        min_cutoff = 183
-        max_cutoff = 20000
-        log_min = np.log(min_cutoff)
-        log_max = np.log(max_cutoff)
-        target_cutoff = np.exp(log_min * (1 - slider) + log_max * slider)
-
-        if not hasattr(self, 'prev_cutoff'):
-            self.prev_cutoff = target_cutoff
-
-        self.prev_cutoff = (1 - smoothing) * self.prev_cutoff + smoothing * target_cutoff
-
-        cutoff = self.prev_cutoff
-
-        combined_wave = butter_lowpass_filter(combined_wave, cutoff=cutoff, fs=self.sample_rate, order=4)
-
-
-        fade_out_samples = int(0.01 * self.sample_rate)  # Keep fade-out short
-        combined_wave[-fade_out_samples:] *= np.linspace(1, 0, fade_out_samples)
-
-        
-
-
-        combined_wave *= self.master_volume
-
-        # Hard limiter to guarantee no clipping
-        combined_wave = np.clip(combined_wave, -0.95, 0.95)
-
-        def normalize_rms(signal, target_rms=0.1, eps=1e-8):
-            rms = np.sqrt(np.mean(signal**2)) + eps
-            return signal * (target_rms / rms)
-
-        combined_wave = normalize_rms(combined_wave, target_rms=0.1)
-
-        # ------------------------------------------------------------------
-        # Apply GLOBAL EQ (high-shelf & low-mid) at the very end so the bass
-        # synth responds to the same slider-controlled tonal shaping as drums.
-        # ------------------------------------------------------------------
-        with slider_val_lock:
-            slider = slider_val
-        combined_wave = apply_global_eq_to_array(combined_wave, slider)
-
+        # -------------------- FINAL PROCESSING ---------------------------
+        combined_wave = self._apply_final_processing(combined_wave, slider)
         return combined_wave
 
+    # Queue Up The Next Note Pattern
     def schedule_pattern(self, base_time, midi_notes, step_duration, delay_pattern_sec):
         with self.lock:
             for i, midi_note in enumerate(midi_notes):
@@ -1516,18 +1863,23 @@ class Synth:
                 start = base_time + i * step_duration + delay
                 self.note_queue.append((start, midi_note, step_duration))
 
+    # Hit It
     def run(self):
-        while True:
+        while True:  # Main loop
             now = time.time()
             with self.lock:
+                # Play due notes
                 for (start_time, midi_note, duration) in self.note_queue:
                     if start_time <= now:
                         wave = self.render_note(midi_note, duration)
                         self.active_notes.append((wave, 0))
+                # Remove played notes
                 self.note_queue = [n for n in self.note_queue if n[0] > now]
 
+            # Init output buffer
             buffer = np.zeros(self.buffer_size, dtype=np.float32)
             new_active = []
+            # Mix active notes
             for wave, idx in self.active_notes:
                 end_idx = idx + self.buffer_size
                 segment = wave[idx:end_idx]
@@ -1536,45 +1888,94 @@ class Synth:
                     new_active.append((wave, end_idx))
             self.active_notes = new_active
 
-            
-            buffer = np.clip(buffer, -1.0, 1.0)
+            buffer = np.clip(buffer, -1.0, 1.0)  # Clip audio
 
-            # Output audio buffer
+            # Send to audio
             self.stream.write(buffer.tobytes())
 
-            time.sleep(self.buffer_size / self.sample_rate * 0.01)
+            time.sleep(self.buffer_size / self.sample_rate * 0.01)  # Tiny sleep
 
+# Instantiate Synth
+bass_synth = Synth(sample_rate, config=BASS_CONFIG)
+bass_synth.set_master_volume(BASS_SYNTH_MASTER_VOLUME)  # From config
 
+        # ===========================================================================#
+        #                           G~U~I                                            #
+        # ===========================================================================#
 
+# ============================================================================
+# GUI CONFIGURATION SECTION –  DEVELOPER-TUNABLE UI CONSTANTS
+# ============================================================================
 
-# Instantiate once globally somewhere after sample_rate is set:
-bass_synth = Synth(sample_rate)
-bass_synth.set_master_volume(0.5)  # sets volume to 50%
+## WINDOW SETTINGS
+GUI_WINDOW_TITLE    = "Sequencer BPM Control"
+GUI_WINDOW_WIDTH    = 400
+GUI_WINDOW_HEIGHT   = 150
+GUI_WINDOW_GEOMETRY = f"{GUI_WINDOW_WIDTH}x{GUI_WINDOW_HEIGHT}"
 
+## LABEL SETTINGS
+GUI_LABEL_TEXT      = "BPM (log scale)"
+GUI_LABEL_PADDING_Y = 10
+
+## SLIDER SETTINGS
+GUI_SLIDER_MIN         = 0
+GUI_SLIDER_MAX         = 1
+GUI_SLIDER_RESOLUTION  = 0.001
+GUI_SLIDER_LENGTH_PX   = 300
+GUI_SLIDER_ORIENTATION = tk.HORIZONTAL  # Uses tkinter constant
+
+# ============================================================================
+# GUI EVENT HANDLERS
+# ============================================================================
+
+# Updates global slider value for sequencer
 def on_slider_change(val):
     global slider_val
     with slider_val_lock:
         slider_val = float(val)
 
+# ============================================================================
+# GUI WINDOW SETUP
+# ============================================================================
 
 # Create the Tk root window only once
 root = tk.Tk()
-root.title("Sequencer BPM Control")
-root.geometry('400x150')
+root.title(GUI_WINDOW_TITLE)
+root.geometry(GUI_WINDOW_GEOMETRY)
 
-label = tk.Label(root, text="BPM (log scale)")
-label.pack(pady=10)
+# ============================================================================
+# GUI CONTROLS CREATION
+# ============================================================================
 
-slider = tk.Scale(root, from_=0, to=1, resolution=0.001,
-                  orient=tk.HORIZONTAL, length=300,
+# BPM control label
+label = tk.Label(root, text=GUI_LABEL_TEXT)
+label.pack(pady=GUI_LABEL_PADDING_Y)
+
+# BPM slider control
+slider = tk.Scale(root,
+                  from_=GUI_SLIDER_MIN,
+                  to=GUI_SLIDER_MAX,
+                  resolution=GUI_SLIDER_RESOLUTION,
+                  orient=GUI_SLIDER_ORIENTATION,
+                  length=GUI_SLIDER_LENGTH_PX,
                   command=on_slider_change)
 slider.set(bpm_to_slider(DEFAULT_BPM))
 slider.pack()
 
+# ============================================================================
+# SEQUENCER THREAD MANAGEMENT
+# ============================================================================
+
+# Start sequencer background thread
 stop_event = threading.Event()
 sequencer_thread = threading.Thread(target=sequencer, args=(stop_event,), daemon=True)
 sequencer_thread.start()
 
+# ============================================================================
+# WINDOW CLEANUP HANDLING
+# ============================================================================
+
+# Clean shutdown when window closes
 def on_close():
     stop_event.set()
     sequencer_thread.join()
@@ -1582,5 +1983,9 @@ def on_close():
     root.destroy()
 
 root.protocol("WM_DELETE_WINDOW", on_close)
+
+# ============================================================================
+# GUI MAIN LOOP
+# ============================================================================
 
 root.mainloop()
