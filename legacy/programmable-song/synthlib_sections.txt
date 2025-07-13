@@ -1,0 +1,39 @@
+Synthlib.cpp – Proposed High-Level Structure
+===========================================
+
+SECTION 1 : Core Declarations & Data Structures
+• All #include directives  
+• Global constants (PI, default sample-rate, tunable DSP constants)  
+• Forward declarations (structs, callback prototypes, extern “C” functions)  
+• Global/sample-playback variables (sample buffers, loop pointers)  
+• Primary data container: `struct SineData` (member variables only)
+
+SECTION 2 : DSP Primitives
+• Inline/stand-alone sample-by-sample processors:  
+  – Low-pass biquad (processFilter)  
+  – Comb filter (processCombFilter)  
+  – Tube driver saturation (processTubeDriver)  
+  – Bit-crusher (processBitcrusher)  
+• Helper math for filter/comb coefficient calculation  
+• Sample-loading routine for the wav-based “square” oscillator
+
+SECTION 3 : Envelope & Parameter Management
+• ADSR update / state-transition helpers (`update_adsr`, `update_filter_env`)  
+• Parameter-smoothing logic for every target/current pair  
+• All setter methods inside `SineData` (gain, filter, comb, effects, globals)  
+• Global-scope tunable-parameter setters (gain cap, loop-fade length, etc.)
+
+SECTION 4 : Audio Callback & Real-Time Processing
+• PortAudio callback `paCallback`  
+  – Envelope progression per sample  
+  – Oscillator mixing, normalisation  
+  – Full DSP signal chain (osc → filters → effects)  
+  – Phase, LFO and sample-position advancement  
+• Any ancillary real-time helpers required by the callback
+
+SECTION 5 : External Control Interface
+• extern "C" API functions exposed to Python:  
+  – Lifecycle: `start_synth`, `stop_synth`, `note_on`, `note_off`  
+  – Parameter setters (frequency, ADSR, filter/comb/effect params, etc.)  
+• Waveform-visualisation helper (console ASCII) – optional but convenient  
+• PortAudio initialisation / teardown and state-initialisation code
