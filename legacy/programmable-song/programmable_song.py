@@ -2,9 +2,7 @@
 
 
 
-
-
-
+# bunghole master
 # Undo Flag
 
 #===========================#
@@ -30,11 +28,12 @@ debugging_eq = False  # Set to True to enable diagnostic output
 
 # -------------------------- MASTER VOLUME CONTROLS ------------------------
 bass_master_volume = 10.0
-piano_master_volume = 1.0
+piano_master_volume = 20.0
 DRUMS_MASTER_VOLUME = 1.0 
 
 DRUM_DELAY_OFFSET = 0.0
 PIANO_DELAY_OFFSET = 0.0
+PORTAUDIO_SLOWDOWN = 0.15
 
 # -------------------------- GENERAL CONTROLS ------------------------------
 SAMPLE_RATE = 44100
@@ -83,6 +82,21 @@ HIGHSHELF_FREQ_HZ     = 3000     # High-shelf starts at 3 kHz
 HIGHSHELF_SLOPE_DB_OCT = 12      # 12 dB/oct ≈ 2-pole “gentle” shelf
 LOWMID_CENTER_FREQ_HZ = 300      # Low-mid peaking-EQ centre
 LOWMID_Q_FACTOR       = 2.0      # Q factor (bandwidth) for low-mid band
+
+# ---------------------------------------------------------------------------
+# Parameter Change Compensation Settings
+# ---------------------------------------------------------------------------
+
+# Parameter-Change Compensation (not continuous normalization)
+COMPENSATION_ENABLED = True
+COMPENSATION_SMOOTHING_TIME = 0.05  # seconds for smooth transitions
+COMPENSATION_MAX_ADJUSTMENT_DB = 6.0  # max compensation allowed
+
+# Track parameter states for compensation
+_last_slider_val = 0.5
+_last_filter_state = {}
+_last_tube_state = {}
+_compensation_gain = {}  # per synth_id
 
 # Final Filter Settings
 FINAL_FILTER_MIN_FREQ = 183     # Minimum final filter cutoff
@@ -191,7 +205,7 @@ DRUM_ACCENT_PATTERNS = [
 ]
 
 BASS_PATTERNS = [
-    ['1','c','c','c',  'c','c','c','c', '1','c','c','c', 'c','c','c','c', ], #SadLevel8
+    ['1','c','c','c',  'c','c','c','c',  '1','c','c','c',  'c','c','c','c',  ], #SadLevel8
     #['1',0,'2',0, '3',0,'4',0, '5',0,'6',0, '7',0,'8',0, ],
     ['1','c','c','c', 'c','c','c','c', '3','c','c','c', 'c','c','c','c', ],
     #['1',0,'2',0, '3',0,'4',0, '5',0,'6',0, '7',0,'8',0, ],
@@ -218,95 +232,95 @@ BASS_PATTERNS = [
 
 PIANO_PATTERNS = [
     [   # Sad Level 8
-        ['iº*','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['iº7','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['iº','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['i','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],],
+        ['vi','c','c',0, 'vi','c','c',0, 'vi','c','vi','c', 'vi','c','vi','c'  ],
+        ['ii7','c','c',0, 'ii7','c','c',0, 'ii7','c','ii7','c', 'ii7','c','ii7','c', ],
+        ['iv7','c','c',0, 'iv7','c','c',0, 'iv7','c','iv7','c', 'iv7','c','iv7','c', ],
+        ['III7','c','c',0, 'III7','c','c',0, 'III7','c','III7','c', 'III7','c','III7','c', ]],
     [   # Sad Level 7
-        ['I','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['I7','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['IM7','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['I+','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],],
+        ['vi','c','c','c', 0,0,'vi','c', 'vi','c','vi','c', 'vi','c','vi','c' ],
+        ['ii','c','c','c', 0,0,'ii','c', 'ii','c','ii','c', 'ii','c','ii','c' ],
+        ['vi','c','c','c', 0,0,'vi','c', 'vi','c','vi','c', 'vi','c','vi','c'  ],
+        ['III','c','c','c', 0,0,'III','c', 'III','c','III','c', 'III','c','III','c' ],],
     [   # Sad Level 6
-        ['#iº*','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['#iº7','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['#iº','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['#i','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],],
+        ['vi','c','c','c', 0,0,'vi','c', 'vi','c','c','c', 0,0,'vi','c',],
+        ['iv','c','c','c', 0,0,'iv','c', 'iv','c','c','c', 0,0,'iv','c',],
+        ['biiº7','c','c','c', 0,0,'biiº7','c', 'biiº7','c','c','c', 0,0,'biiº7','c',],
+        ['V7','c','c','c', 0,0,'V7','c', 'V7','c','c','c', 0,0,'V7','c',],],
     [   # Sad Level 5
-        ['#I','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['#I7','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['#IM7','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['#I+','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],],
+        ['vi','c','vi','c', 0,0,'vi','c', 'vi','c','vi','c', 0,0,'vi','c',],
+        ['bVI','c','bVI','c', 0,0,'bVI','c', 'bVI','c','bVI','c', 0,0,'bVI','c',],
+        ['iº','c','iº','c', 0,0,'iº','c', 'iº','c','iº','c', 0,0,'iº','c',],
+        ['V7','c','V7','c', 0,0,'V7','c', 'V7','c','V7','c', 0,0,'V7','c',],],
     [   # Sad Level 4
-        ['biiº*','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['biiº7','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['biiº','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['bii','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],],
+        ['vi','c','c','c', 0,0,0,0, 'vi','c','c','c', 'vi','c','c','c',],
+        ['bIII','c','c','c', 0,0,0,0, 'bIII','c','c','c', 'bIII','c','c','c',],
+        ['bVII','c','c','c', 0,0,0,0, 'bVII','c','c','c', 'bVII','c','c','c',],
+        ['iiº*','c','c','c', 0,0,0,0, 'iiº*','c','c','c', 'iiº*','c','c','c',],],
     [   # Sad Level 3
-        ['bII','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['bII7','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['bIIM7','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['bII+','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],],
+        ['vi','c','c','vi', 0,0,0,0, 'vi','c','vi','c', 0,0,0,0,],
+        ['ii','c','c','ii', 0,0,0,0, 'ii','c','ii','c', 0,0,0,0,],
+        ['IV','c','c','IV', 0,0,0,0, 'IV','c','IV','c', 0,0,0,0,],
+        ['bVII','c','c','bVII', 0,0,0,0, 'bVII','c','bVII','c', 0,0,0,0,],],
     [   # Sad Level 2
-        ['ii','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['iii','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['vi','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['ii','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],],
+        ['I','c','c','c', 'c',0,'I','c', 'c','c','c','c', 0,0,0,0,],
+        ['vi','c','c','c', 'c',0,'vi','c', 'c','c','c','c', 0,0,0,0,],
+        ['IV','c','c','c', 'c',0,'IV','c', 'c','c','c','c', 0,0,0,0,],
+        ['iv','c','c','c', 'c',0,'iv','c', 'c','c','c','c', 0,0,0,0,],],
     [   # Sad Level 1
-        ['ii','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['iii','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['IV','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['vi','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],],
+        ['vi','c','c','c', 'vi','c','c','c', 'c','c','c','c', 'c','c',0,0,],
+        ['iii','c','c','c', 'iii','c','c','c', 'c','c','c','c', 'c','c',0,0,],
+        ['IV','c','c','c', 'IV','c','c','c', 'c','c','c','c', 'c','c',0,0,],
+        ['V','c','c','c', 'V','c','c','c', 'c',0,'V','c', 'c',0,'V',0,],],
     [   # Neutral
-        ['#I','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['I','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['#I','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['ii','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],],
+        ['I','c','c','c', 'c','c',0,0, 'I','c','c','c', 'c','c',0,0,],
+        ['vi','c','c','c', 'c','c',0,0, 'vi','c','c','c', 'c','c',0,0,],
+        ['IV','c','c','c', 'c','c',0,0, 'IV','c','c','c', 'c','c',0,0,],
+        ['V','c','c','c', 'c','c',0,0, 'V','c','c','c', 'c','c',0,0,],],
     [   # Happy Level 1
-        ['bii','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['bii','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['V','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['V','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],],
+        ['I','c','c','c', 'c',0,'I','c', 'c','c','c','c', 'c','c',0,0,],
+        ['I+','c','c','c', 'c',0,'I+','c', 'c','c','c','c', 'c','c',0,0,],
+        ['IV','c','c','c', 'c',0,'IV','c', 'c','c','c','c', 'c','c',0,0,],
+        ['V','c','c','c', 'c',0,'V','c', 'c','c','c','c', 'c','c',0,0,],],
     [   # Happy Level 2
-        ['I','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['I','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['I','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['I','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],],
+        ['I',0,'I',0, 'I','c','c','c', 0,0,'I','c', 0,'I',0,0,],
+        ['I',0,'I',0, 'I','c','c','c', 0,0,'I','c', 0,'I',0,0,],
+        ['IV',0,'IV',0, 'IV','c','c','c', 0,0,'IV','c', 0,'IV',0,0,],
+        ['V',0,'V',0, 'V','c','c','c', 0,0,'V','c', 0,'V',0,0,],],
     [   # Happy Level 3
-        ['IV','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['I','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['IV','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['V','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],],
+        ['I',0,0,'I', 0,0,'I',0, 0,0,'I',0, 0,'I',0,0,],
+        ['IV',0,0,'IV', 0,0,'IV',0, 0,0,'IV',0, 0,'IV',0,0,],
+        ['I',0,0,'I', 0,0,'I',0, 0,0,'I',0, 0,'I',0,0,],
+        ['V',0,0,'V', 0,0,'V',0, 0,0,'V',0, 0,'V',0,0,],],
     [   # Happy Level 4
-        ['V','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['IV','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['V','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['I','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],],
+        ['I',0,0,'I', 0,0,'I',0, 0,0,'I',0, 'I','c','c','c',],
+        ['IV',0,0,'IV', 0,0,'IV',0, 0,0,'IV',0, 'IV','c','c','c',],
+        ['V',0,0,'V', 0,0,'V',0, 0,0,'V',0, 'V','c','c','c',],
+        ['I',0,0,'I', 0,0,'I',0, 0,0,'I',0, 'I','c','c','c',],],
     [   # Happy Level 5
-        ['I','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['IV','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['V','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['IV','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],],
+        ['I','c',0,'I', 'I','c',0,'I', 'I','c',0,0, 'I',0,'I',0,],
+        ['II','c',0,'II', 'II','c',0,'II', 'II','c',0,0, 'II',0,'II',0,],
+        ['V','c',0,'V', 'V','c',0,'V', 'V','c',0,0, 'V',0,'V',0,],
+        ['I','c',0,'I', 'I','c',0,'I', 'I','c',0,0, 'I',0,'I',0,],],
     [   # Happy Level 6
-        ['IV','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['V','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['IV','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['I','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],],
+        ['I','I','I',0, 'I','I','I',0, 'IV','IV','IV',0, 'IV','IV','IV',0,],
+        ['I','I','I',0, 'I','I','I',0, 0,0,'I',0, 0,0,'I',0,],
+        ['II','II','II',0, 'II','II','II',0, 'V','V','V',0, 'V','V','V',0,],
+        ['I','I','I',0, 'I','I','I',0, 0,0,'I',0, 0,0,'I',0,],],
     [   # Happy Level 7
-        ['V','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['I','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['V','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['IV','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],],
+        ['I',0,'I',0, 'I',0,'I',0, 0,0,'II',0, 0,0,'II',0,],
+        ['V',0,'V',0, 'V',0,'V',0, 0,0,'V',0, 0,'V',0,'V',],
+        ['I',0,'I',0, 'I',0,'I',0, 0,0,'#ivº7',0, 0,0,'#ivº7',0,],
+        ['V',0,'V',0, 'V',0,'V',0, 0,0,'I',0, 0,'I',0,0,],],
     [   # Happy Level 8
-        ['I','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['V','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['I','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],
-        ['IV','c','c','c', 'c','c','c','c', 'c','c','c','c', 'c','c',0,0,],]
+        [0,0,'I',0, 0,0,'I',0, 0,0,'II',0, 0,0,'II',0,],
+        [0,0,'V',0, 0,0,'V',0, 0,0,'VII',0, 0,0,'VII',0,],
+        [0,0,'I',0, 0,0,'I',0, 0,0,'#IV',0, 0,0,'#IV',0,],
+        [0,0,'V',0, 0,0,'V',0, 0,0,'IV',0, 0,0,'IV',0,],]
 ]
 
 ## DELAY PATTERN SETTINGS
 # Base delay amounts in milliseconds for sad patterns (SadLevel8 → SadLevel1)
-DELAY_BASE_SAD_MS = [100, 79, 63, 50, 40, 32, 25, 0]
+DELAY_BASE_SAD_MS = [12, 10, 8, 6, 5, 4, 3, 0]
 # Happy delays are calculated as: sad_delay * DELAY_HAPPY_FACTOR
 DELAY_HAPPY_FACTOR = 0.25
 
@@ -324,6 +338,8 @@ BASS_CONFIG = {
     "patternSet": "bass",
     "masterVolume": bass_master_volume,
     "durationMultiplier": 0.5,
+    "osc1_waveform": "sine",
+    "osc2_waveform": "sample",  
     "min_osc1_gain": 1.0,
     "max_osc1_gain": 0.5,
     "min_osc2_gain": 0.0,
@@ -367,8 +383,8 @@ BASS_CONFIG = {
     "min_bit_mix": 0.0,
     "max_bit_mix": 5.0,
     # Filter parameters
-    "min_filter_cutoff": 20.0,
-    "max_filter_cutoff": 20.0,
+    "min_filter_cutoff": 50.0,
+    "max_filter_cutoff": 50.0,
     "min_filter_resonance": 0.25,
     "max_filter_resonance": 12.22,
     "min_filter_drive": 0.0,
@@ -409,8 +425,39 @@ PIANO_CONFIG = {
     "patternSet": "piano",
     "masterVolume": piano_master_volume,
     "durationMultiplier": 0.5,
-    "min_osc1_gain": 1.0,
-    "max_osc1_gain": 1.0,
+    "oscillators": [
+        {"waveform": "sample", "min_gain": 0.0,  "max_gain": 1.0,
+         "samplePath": "/Users/busterbaer/Desktop/Programmable Song/ProgrammableLoop2/JP Square PWM.wav",
+         "sampleLoopStartPercentage": 0.0,
+         "sampleLoopEndPercentage": 1.0,
+         "sampleBaseFrequency": 21.785,
+         "highpass_cutoff": 100,
+         "highpass_enabled": True},
+        {"waveform": "sample", "min_gain": 0.0,  "max_gain": 0.79,
+         "samplePath": "/Users/busterbaer/Desktop/Programmable Song/ProgrammableLoop2/JP Square PWM.wav",
+         "sampleLoopStartPercentage": 0.0,
+         "sampleLoopEndPercentage": 1.0,
+         "sampleBaseFrequency": 43.725,
+         "highpass_cutoff": 100,
+         "highpass_enabled": True},
+        {"waveform": "sample", "min_gain": 1.0,  "max_gain": 0.0,
+         "samplePath": "/Users/busterbaer/Desktop/Programmable Song/ProgrammableLoop2/Piano HIGH C2.wav",
+         "sampleLoopStartPercentage": 0.5,
+         "sampleLoopEndPercentage": 1.0,
+         "sampleBaseFrequency": 65.41,
+         "highpass_cutoff": 100,
+         "highpass_enabled": True},
+         {"waveform": "sample", "min_gain": 0.79,  "max_gain": 0.0,
+         "samplePath": "/Users/busterbaer/Desktop/Programmable Song/ProgrammableLoop2/Piano Tape Hiss C.wav",
+         "sampleLoopStartPercentage": 0.41,
+         "sampleLoopEndPercentage": 1.0,
+         "sampleBaseFrequency": 65.41,
+         "highpass_cutoff": 100,
+         "highpass_enabled": True}],
+    "osc1_waveform": None,
+    "osc2_waveform": None,
+    "min_osc1_gain": 0.0,
+    "max_osc1_gain": 0.0,
     "min_osc2_gain": 0.0,
     "max_osc2_gain": 0.0,
     "sampleLoopStartPercentage": 0.0,
@@ -421,23 +468,23 @@ PIANO_CONFIG = {
     "patternIndex": 0,
     "noteIsPlaying": False,
     # ADSR bounds
-    "minAttack": 0.001,
-    "maxAttack": 0.001,
-    "minDecay": 3.56,
-    "maxDecay": 3.56,
+    "minAttack": 0.05,
+    "maxAttack": 0.05,
+    "minDecay": 0.01,
+    "maxDecay": 60.0,
     "minSustainDb": 0.0,
     "maxSustainDb": 0.0,
-    "minRelease": 0.33,
-    "maxRelease": 0.33,
+    "minRelease": 4.0,
+    "maxRelease": 0.1,
     # FM-depth bounds
     "minFmDepth": 0.0,
     "maxFmDepth": 0.0,
     # LFO Params
-    "min_LFO_rate": 0.01,
+    "min_LFO_rate": 0.562,
     "max_LFO_rate": 0.01,
-    "min_LFO_depth": 0.01,
+    "min_LFO_depth": 0.0618,
     "max_LFO_depth": 0.01,
-    "min_LFO_Level": 0.0,
+    "min_LFO_Level": 0.25,
     "max_LFO_Level": 0.0,
     # Tube Driver parameters
     "min_tube_amount": 0.0,
@@ -452,21 +499,21 @@ PIANO_CONFIG = {
     "min_bit_mix": 0.0,
     "max_bit_mix": 0.0,
     # Filter parameters
-    "min_filter_cutoff": 2000.0,
-    "max_filter_cutoff": 2000.0,
-    "min_filter_resonance": 0.25,
-    "max_filter_resonance": 0.25,
-    "min_filter_drive": 0.0,
+    "min_filter_cutoff": 20000.0,
+    "max_filter_cutoff": 20000.0,
+    "min_filter_resonance": 9.79,
+    "max_filter_resonance": 20.83,
+    "min_filter_drive": 0.05,
     "max_filter_drive": 0.0,
-    "min_filter_key_track": 0.0,
-    "max_filter_key_track": 0.0,
-    "min_filter_env_mod": 0.0,
-    "max_filter_env_mod": 0.0,
+    "min_filter_key_track": 0.7,
+    "max_filter_key_track": 0.5,
+    "min_filter_env_mod": 0.6,
+    "max_filter_env_mod": 0.4,
     # Comb filter parameters
-    "min_comb_cutoff": 2000.0,
-    "max_comb_cutoff": 2000.0,
-    "min_comb_resonance": 0.01,
-    "max_comb_resonance": 0.01,
+    "min_comb_cutoff": 20000.0,
+    "max_comb_cutoff": 20000.0,
+    "min_comb_resonance": 0.25,
+    "max_comb_resonance": 0.25,
     "min_comb_drive": 0.0,
     "max_comb_drive": 0.0,
     "min_comb_key_track": 0.0,
@@ -474,19 +521,19 @@ PIANO_CONFIG = {
     "min_comb_env_mod": 0.0,
     "max_comb_env_mod": 0.0,
     # Global filter parameters
-    "min_global_cutoff": 125.0,
-    "max_global_cutoff": 125.0,
+    "min_global_cutoff": 20.0,
+    "max_global_cutoff": 20.0,
     "min_global_resonance": 0.25,
     "max_global_resonance": 0.25,
     # Filter envelope parameters
-    "min_filter_env_attack": 0.01,
-    "max_filter_env_attack": 0.01,
-    "min_filter_env_decay": 0.05,
-    "max_filter_env_decay": 0.05,
-    "min_filter_env_sustain": -20.0,
-    "max_filter_env_sustain": -20.0,
-    "min_filter_env_release": 0.300,
-    "max_filter_env_release": 0.300,
+    "min_filter_env_attack": 0.001,
+    "max_filter_env_attack": .006,
+    "min_filter_env_decay": 0.99,
+    "max_filter_env_decay": 1.874,
+    "min_filter_env_sustain": -11.31,
+    "max_filter_env_sustain": -50.0,
+    "min_filter_env_release": 3.75,
+    "max_filter_env_release": 12.300,
 }
 
         #==================================================================#
@@ -512,7 +559,7 @@ TRANSITIONAL_CHORD_SYMBOL = None  # Bass uses this during key transitions
 PREVIOUS_CHORD_SYMBOL = None  # Track the previous chord for contextual scale selection
 
 # Thresholds, parameter bounds
-GAIN_NORMALIZATION_CAP = 3.0
+GAIN_NORMALIZATION_CAP = 100.0
 COMB_MIN_DELAY_MS      = 1.0 # ms
 COMB_MAX_DELAY_MS      = 50.0 # ms
 COMB_FEEDBACK_MAX      = 0.95
@@ -589,8 +636,8 @@ start_sustain = {}
 target_sustain = {}
 start_sine_gain = {}
 target_sine_gain = {}
-start_square_gain = {}
-target_square_gain = {}
+start_sample_gain = {}
+target_sample_gain = {}
 start_fm_depth = {}
 target_fm_depth = {}
 
@@ -867,17 +914,95 @@ class SynthInstance:
         synth.set_gain_normalization_cap(GAIN_NORMALIZATION_CAP, self.synth_id)
         synth.set_loop_fade_samples(LOOP_FADE_SAMPLES, self.synth_id)
         
-        # Initialize oscillator gains from slider value 0.5 (neutral)
+        # Initialize oscillators (variable count if provided)
+        osc_list = self.config.get("oscillators")
         slider_val = 0.5
-        synth.set_sine_gain(
-            slider_to_log_gain(slider_val, self.config["min_osc1_gain"], self.config["max_osc1_gain"]), 
-            self.synth_id
-        )
-        synth.set_square_gain(
-            slider_to_log_gain(slider_val, self.config["min_osc2_gain"], self.config["max_osc2_gain"]), 
-            self.synth_id
-        )
-        
+
+        if osc_list and isinstance(osc_list, list) and len(osc_list) > 0:
+            synth.set_osc_count(len(osc_list), self.synth_id)
+            for idx, osc in enumerate(osc_list):
+                wf = WAVEFORM_TYPES.get(osc.get("waveform", "sine"), 0)
+                # Correct arg order: (index, type, synthId)
+                synth.set_osc_waveform_at(idx, wf, self.synth_id)
+
+                # If this oscillator uses a sample, set its path and parameters
+                if wf == WAVEFORM_TYPES["sample"]:
+                    path = osc.get("samplePath")
+                    if path:
+                        synth.set_sample_path_at(path.encode("utf-8"), idx, self.synth_id)
+                        
+                        # Set the sample loop start percentage
+                        loop_start = osc.get("sampleLoopStartPercentage", 0.0)
+                        synth.set_sample_loop_start_percentage_at(loop_start, idx, self.synth_id)
+                        
+                        # Set the sample loop end percentage
+                        loop_end = osc.get("sampleLoopEndPercentage", 1.0)
+                        synth.set_sample_loop_end_percentage_at(loop_end, idx, self.synth_id)
+                        
+                        # Set the sample base frequency
+                        base_freq = osc.get("sampleBaseFrequency", 440.0)
+                        synth.set_sample_base_frequency_at(base_freq, idx, self.synth_id)
+                        
+                        # Apply high-pass filter settings if specified
+                        highpass_cutoff = osc.get("highpass_cutoff", 0.0)
+                        highpass_enabled = osc.get("highpass_enabled", False)
+                        synth.set_highpass_cutoff_at(highpass_cutoff, idx, self.synth_id)
+                        synth.set_highpass_enabled_at(highpass_enabled, idx, self.synth_id)
+
+                min_g = float(osc.get("min_gain", 0.0))
+                max_g = float(osc.get("max_gain", 1.0))
+                g = slider_to_log_gain(slider_val, min_g, max_g)
+                synth.set_osc_gain_at(g, idx, self.synth_id)
+        else:
+            # Legacy 2-osc path (unchanged behavior)
+            synth.set_sine_gain(
+                slider_to_log_gain(slider_val, self.config["min_osc1_gain"], self.config["max_osc1_gain"]),
+                self.synth_id
+            )
+            synth.set_sample_gain(
+                slider_to_log_gain(slider_val, self.config["min_osc2_gain"], self.config["max_osc2_gain"]),
+                self.synth_id
+            )
+            synth.set_osc1_waveform(
+                WAVEFORM_TYPES[self.config.get("osc1_waveform", "sine")],
+                self.synth_id
+            )
+            synth.set_osc2_waveform(
+                WAVEFORM_TYPES[self.config.get("osc2_waveform", "sample")],
+                self.synth_id
+            )
+
+        # In the SynthInstance.__init__ method, after the oscillator waveform and gain setting
+        if osc_list and isinstance(osc_list, list) and len(osc_list) > 0:
+            synth.set_osc_count(len(osc_list), self.synth_id)
+            for idx, osc in enumerate(osc_list):
+                wf = WAVEFORM_TYPES.get(osc.get("waveform", "sine"), 0)
+                # Correct arg order: (index, type, synthId)
+                synth.set_osc_waveform_at(idx, wf, self.synth_id)
+
+                # If this oscillator uses a sample, set its path
+                if wf == WAVEFORM_TYPES["sample"]:
+                    path = osc.get("samplePath")
+                    if path:
+                        synth.set_sample_path_at(path.encode("utf-8"), idx, self.synth_id)
+                        
+                        # Set the sample loop start percentage
+                        loop_start = osc.get("sampleLoopStartPercentage", 0.0)
+                        synth.set_sample_loop_start_percentage_at(loop_start, idx, self.synth_id)
+                        
+                        # Set the sample loop end percentage
+                        loop_end = osc.get("sampleLoopEndPercentage", 1.0)
+                        synth.set_sample_loop_end_percentage_at(loop_end, idx, self.synth_id)
+                        
+                        # Set the sample base frequency
+                        base_freq = osc.get("sampleBaseFrequency", 440.0)
+                        synth.set_sample_base_frequency_at(base_freq, idx, self.synth_id)
+
+                min_g = float(osc.get("min_gain", 0.0))
+                max_g = float(osc.get("max_gain", 1.0))
+                g = slider_to_log_gain(slider_val, min_g, max_g)
+                synth.set_osc_gain_at(g, idx, self.synth_id)
+
         # Initialize ADSR parameters based on neutral slider value
         synth.set_attack(
             slider_to_log_range(slider_val, self.config["minAttack"], self.config["maxAttack"]),
@@ -1131,6 +1256,14 @@ synth = ctypes.CDLL('./libsynth.so')
 # BINDINGS
 # ============================================================================
 
+WAVEFORM_TYPES = {
+    "sine": 0,
+    "square": 1,
+    "triangle": 2,
+    "saw": 3,
+    "sample": 4,
+}
+
 # # ------------------ SYNTH MANAGEMENT BINDINGS -------------------------
 synth.initialize_synth_system.argtypes = []
 synth.initialize_synth_system.restype = None
@@ -1158,6 +1291,16 @@ synth.set_sample_rate.argtypes = [ctypes.c_double, ctypes.c_int]
 synth.set_sample_rate.restype = None
 synth.set_gain_smoothing_time_seconds.argtypes = [ctypes.c_double, ctypes.c_int]
 synth.set_gain_smoothing_time_seconds.restype = None
+synth.set_osc_count.argtypes = [ctypes.c_int, ctypes.c_int]
+synth.set_osc_count.restype  = None
+
+synth.set_osc_waveform_at.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int]
+synth.set_osc_waveform_at.restype  = None
+
+synth.set_osc_gain_at.argtypes = [ctypes.c_double, ctypes.c_int, ctypes.c_int]
+synth.set_osc_gain_at.restype  = None
+
+
 # ------------------ GAIN NORMALISATION CAP BINDING -------------------------
 synth.set_gain_normalization_cap.argtypes = [ctypes.c_double, ctypes.c_int]
 synth.set_gain_normalization_cap.restype  = None
@@ -1171,16 +1314,34 @@ synth.set_sample_loop_end_percentage.restype = None
 # ------------------------ SAMPLE PATH BINDING -------------------------------
 synth.set_sample_path.argtypes = [ctypes.c_char_p, ctypes.c_int]   # C-style string and synthId
 synth.set_sample_path.restype  = None
+synth.set_sample_path_at.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_int]
+synth.set_sample_path_at.restype  = None
 synth.set_sample_base_frequency.argtypes = [ctypes.c_double, ctypes.c_int]
 synth.set_sample_base_frequency.restype = None
-synth.set_square_gain.argtypes = [ctypes.c_double, ctypes.c_int]
-synth.set_square_gain.restype = None
+synth.set_sample_gain.argtypes = [ctypes.c_double, ctypes.c_int]
+synth.set_sample_gain.restype = None
 synth.set_sine_gain.argtypes = [ctypes.c_double, ctypes.c_int]
 synth.set_sine_gain.restype = None
+synth.set_osc1_waveform.argtypes = [ctypes.c_int, ctypes.c_int]
+synth.set_osc1_waveform.restype  = None
+synth.set_osc2_waveform.argtypes = [ctypes.c_int, ctypes.c_int]
+synth.set_osc2_waveform.restype  = None
 synth.set_fade_samples.argtypes = [ctypes.c_double, ctypes.c_int]
 synth.set_fade_samples.restype = None
 synth.set_fade_in_time.argtypes = [ctypes.c_double, ctypes.c_int]
 synth.set_fade_in_time.restype = None
+# Add these new bindings in the bindings section
+synth.set_sample_loop_start_percentage_at.argtypes = [ctypes.c_double, ctypes.c_int, ctypes.c_int]
+synth.set_sample_loop_start_percentage_at.restype = None
+synth.set_sample_loop_end_percentage_at.argtypes = [ctypes.c_double, ctypes.c_int, ctypes.c_int]
+synth.set_sample_loop_end_percentage_at.restype = None
+synth.set_sample_base_frequency_at.argtypes = [ctypes.c_double, ctypes.c_int, ctypes.c_int]
+synth.set_sample_base_frequency_at.restype = None
+# High-pass filter bindings
+synth.set_highpass_cutoff_at.argtypes = [ctypes.c_double, ctypes.c_int, ctypes.c_int]
+synth.set_highpass_cutoff_at.restype = None
+synth.set_highpass_enabled_at.argtypes = [ctypes.c_bool, ctypes.c_int, ctypes.c_int]
+synth.set_highpass_enabled_at.restype = None
 # ------------------------ FM BINDINGS -------------------------------
 synth.set_fm_depth.argtypes = [ctypes.c_double, ctypes.c_int]
 synth.set_fm_depth.restype = None
@@ -1298,6 +1459,10 @@ synth.get_master_volume.restype = ctypes.c_double
 # EQ Filter functions
 synth.set_highshelf_eq.argtypes = [ctypes.c_double, ctypes.c_double, ctypes.c_int]
 synth.set_highshelf_eq.restype = None
+synth.set_highpass_cutoff_at.argtypes = [ctypes.c_double, ctypes.c_int, ctypes.c_int]
+synth.set_highpass_cutoff_at.restype = None
+synth.set_highpass_enabled_at.argtypes = [ctypes.c_bool, ctypes.c_int, ctypes.c_int]
+synth.set_highpass_enabled_at.restype = None
 synth.set_peaking_eq.argtypes = [ctypes.c_double, ctypes.c_double, ctypes.c_double, ctypes.c_int]
 synth.set_peaking_eq.restype = None
 synth.set_lowshelf_eq.argtypes = [ctypes.c_double, ctypes.c_double, ctypes.c_int]
@@ -1342,6 +1507,39 @@ def get_note_in_key(degree_str, base_midi_note, chord_root="1"):
 # ============================================================================
 # MASTER AUDIO FUNCTIONS
 # ============================================================================
+# ============================================================================
+# SIMPLE PIANO VOLUME COMPENSATION 
+# ============================================================================
+
+def get_piano_volume_multiplier(slider_val):
+    """Get volume multiplier to compensate for piano oscillator dip around 0.4"""
+    
+    # Create a compensation curve that boosts around 0.4 where the dip occurs
+    if slider_val >= 0.3 and slider_val <= 0.5:
+        # Create a boost curve centered at 0.4
+        distance_from_center = abs(slider_val - 0.4)
+        max_distance = 0.1  # 0.3 to 0.5 range
+        
+        # Normalize distance (0 = at center, 1 = at edges)
+        normalized_distance = distance_from_center / max_distance
+        
+        # Create boost that's strongest at center (slider_val = 0.4)
+        boost_amount = 1.0 - normalized_distance  # 1.0 at center, 0.0 at edges
+        boost_db = boost_amount * 3.0  # Up to 3dB boost at 0.4
+        
+        return 10.0 ** (boost_db / 20.0)  # Convert dB to linear
+    
+    return 1.0  # No compensation outside the problem range
+
+def apply_simple_piano_compensation(poly_synth, slider_val):
+    """Apply simple volume compensation for piano dip"""
+    
+    multiplier = get_piano_volume_multiplier(slider_val)
+    
+    # Apply to all voices
+    for voice in poly_synth.voices:
+        original_volume = voice.config["masterVolume"]
+        synth.set_master_volume(original_volume * multiplier, voice.synth_id)
 
 # Convert slider position (0-1) to global volume adjustment in dB (±5dB range)
 def slider_to_global_gain_db(slider):
@@ -2103,7 +2301,7 @@ def get_bass_note(degree_str, chord_symbol, base_midi_note, next_chord=None, tar
     # Get previous chord context for scale selection
     previous_chord = TRANSITIONAL_CHORD_SYMBOL or PREVIOUS_CHORD_SYMBOL
     modal_scale = get_scale_for_chord(chord_symbol, previous_chord, next_chord, target_chord)
-    print(f"MODAL SCALE DEBUG: Using {modal_scale} for chord {chord_symbol}, degree {degree_str}")
+    #print(f"MODAL SCALE DEBUG: Using {modal_scale} for chord {chord_symbol}, degree {degree_str}")
     # Convert degree to scale position - handle both positive and negative degrees
     try:
         degree_num = int(degree_str)
@@ -2378,6 +2576,55 @@ def transpose_pattern_to_key(pattern, key_offset):
     """Transpose all notes in a pattern by key offset"""
     # Handle bass patterns, piano patterns, etc.
     pass
+
+def find_next_chord_in_pattern(pattern_set, current_pattern_index, current_measure, current_step, 
+                              search_ahead_steps=32, target_pattern_index=None):
+    """
+    Scan through pattern(s) to find the next actual chord, regardless of position.
+    
+    Args:
+        pattern_set: The pattern set to search (PIANO_PATTERNS, etc.)
+        current_pattern_index: Current pattern being played
+        current_measure: Current measure within pattern
+        current_step: Current step within measure (0-15)
+        search_ahead_steps: How many steps ahead to search
+        target_pattern_index: If transitioning, the target pattern to search
+        
+    Returns:
+        dict with 'chord', 'steps_ahead', 'measure', 'step' of next chord, or None
+    """
+    
+    # Start search from current position
+    search_pattern = target_pattern_index if target_pattern_index is not None else current_pattern_index
+    pattern = pattern_set[search_pattern]
+    
+    current_absolute_step = (current_measure * 16) + current_step
+    
+    for steps_ahead in range(1, search_ahead_steps + 1):
+        future_absolute_step = current_absolute_step + steps_ahead
+        
+        # Handle pattern wraparound
+        future_measure = (future_absolute_step // 16) % len(pattern)
+        future_step = future_absolute_step % 16
+        
+        # Get the chord at this position
+        measure_pattern = pattern[future_measure]
+        if future_step < len(measure_pattern):
+            chord = measure_pattern[future_step]
+            
+            # Skip 'c' (continue) and 0 (rest) - look for actual chords
+            if chord not in ['c', 0] and isinstance(chord, str):
+                # Check for Roman numeral chords (your pattern format)
+                if any(c in "ivIV" for c in chord) or any(c in "º+*7M#b" for c in chord):
+                    return {
+                        'chord': chord,
+                        'steps_ahead': steps_ahead,
+                        'measure': future_measure,
+                        'step': future_step,
+                        'absolute_step': future_absolute_step
+                    }
+    
+    return None  # No chord found in search range
 
 def calculate_key_change(old_pattern_index, new_pattern_index, pivot_chord, proto_chord, target_chord):
     """
@@ -2673,7 +2920,7 @@ def update_bpm_from_slider(slider: float) -> float:
     global start_release, target_release
     global start_sustain, target_sustain
     global start_sine_gain, target_sine_gain
-    global start_square_gain, target_square_gain
+    global start_sample_gain, target_sample_gain
     global start_fm_depth, target_fm_depth
     # --- filter globals ---
     global start_filter_cutoff,   target_filter_cutoff
@@ -2743,8 +2990,8 @@ def update_bpm_from_slider(slider: float) -> float:
                 if current_synth_id in start_sine_gain and current_synth_id in target_sine_gain:
                     synth.set_sine_gain(start_sine_gain[current_synth_id] + (target_sine_gain[current_synth_id] - start_sine_gain[current_synth_id]) * progress, current_synth_id)
                 
-                if current_synth_id in start_square_gain and current_synth_id in target_square_gain:
-                    synth.set_square_gain(start_square_gain[current_synth_id] + (target_square_gain[current_synth_id] - start_square_gain[current_synth_id]) * progress, current_synth_id)
+                if current_synth_id in start_sample_gain and current_synth_id in target_sample_gain:
+                    synth.set_sample_gain(start_sample_gain[current_synth_id] + (target_sample_gain[current_synth_id] - start_sample_gain[current_synth_id]) * progress, current_synth_id)
                 
                 # FM depth
                 if current_synth_id in start_fm_depth and current_synth_id in target_fm_depth:
@@ -3037,6 +3284,29 @@ def load_cymbal_samples():
             print(f"Error loading {path}: {e}")
 load_cymbal_samples()
 
+# EQ processing caches for thread-safe drum playback
+kick_eq_cache = {}
+snare_eq_cache = {}
+cymbal_eq_cache = {}
+
+def get_eq_processed_sound(original_sound, cache_dict, cache_key, slider_val):
+    """Get EQ-processed sound from cache or create it"""
+    # Quantize slider to reduce cache size (100 steps should be enough)
+    quantized_slider = round(slider_val * 100) / 100.0
+    eq_key = f"{cache_key}_{int(quantized_slider * 100)}"
+    
+    if eq_key not in cache_dict:
+        cache_dict[eq_key] = apply_global_eq_to_sound(original_sound, quantized_slider)
+    
+    return cache_dict[eq_key]
+
+def clear_eq_caches():
+    """Clear all EQ caches when needed"""
+    global kick_eq_cache, snare_eq_cache, cymbal_eq_cache
+    kick_eq_cache.clear()
+    snare_eq_cache.clear()
+    cymbal_eq_cache.clear()
+
 # ============================================================================
 # SAMPLE-BASED PLAY FUNCTIONS
 # ============================================================================
@@ -3045,12 +3315,12 @@ load_cymbal_samples()
 def play_kick_sample_with_delay_and_gain(label, delay_ms, gain_db):
     def delayed_play():
         time.sleep(delay_ms / 1000)
-        sound = kick_cache.get(label)
-        if sound:
+        original_sound = kick_cache.get(label)
+        if original_sound:
             with slider_val_lock:
                 slider = slider_val
-            # --- Real-time GLOBAL EQ ---------------------------------------
-            sound = apply_global_eq_to_sound(sound, slider)
+            # Get EQ-processed sound from cache (thread-safe)
+            sound = get_eq_processed_sound(original_sound, kick_eq_cache, label, slider)
 
             # --- Pure volume / gain (no pseudo EQ) -------------------------
             global_gain_db = slider_to_global_gain_db(slider)
@@ -3064,12 +3334,14 @@ def play_kick_sample_with_delay_and_gain(label, delay_ms, gain_db):
 def play_snare_with_delay_and_gain(label, delay_ms, gain_db):
     def delayed_play():
         time.sleep(delay_ms/1000)
-        sound = snare_cache.get(label)
-        if sound:
+        actual_play_time = time.time()
+        #print(f"SNARE ACTUAL PLAY: step {master_step} played at {actual_play_time:.6f}")
+        original_sound = snare_cache.get(label)
+        if original_sound:
             with slider_val_lock:
                 slider = slider_val
-            # Apply real EQ filtering
-            sound = apply_global_eq_to_sound(sound, slider)
+            # Get EQ-processed sound from cache (thread-safe)
+            sound = get_eq_processed_sound(original_sound, snare_eq_cache, label, slider)
 
             # Volume only (EQ already applied)
             total_gain_db = gain_db + slider_to_global_gain_db(slider)
@@ -3081,12 +3353,12 @@ def play_snare_with_delay_and_gain(label, delay_ms, gain_db):
 def play_cymbal_with_delay_and_gain(label, delay_ms, gain_db):
     def delayed_play():
         time.sleep(delay_ms/1000)
-        sound = cymbal_cache.get(label)
-        if sound:
+        original_sound = cymbal_cache.get(label)
+        if original_sound:
             with slider_val_lock:
                 slider = slider_val
-            # Apply real EQ filtering
-            sound = apply_global_eq_to_sound(sound, slider)
+            # Get EQ-processed sound from cache (thread-safe)
+            sound = get_eq_processed_sound(original_sound, cymbal_eq_cache, label, slider)
 
             # Volume only (EQ already applied)
             total_gain_db = gain_db + slider_to_global_gain_db(slider)
@@ -3099,6 +3371,10 @@ def play_cymbal_with_delay_and_gain(label, delay_ms, gain_db):
 def trigger_drums_for_step(step: int,
                            pattern_index: int,
                            drum_delay_ms: float) -> None:
+    
+    import time
+    drum_trigger_time = time.time()
+    #print(f"DRUM TRIGGER TIME: Step {step} triggered at {drum_trigger_time:.6f}")
     # (pattern-matrix, corresponding play-function) pairs
     drum_map = [
         (KICK_PATTERNS,   play_kick_sample_with_delay_and_gain),
@@ -3181,13 +3457,15 @@ def synth_sequencer_thread(stop_event, synth, synth_id, slider_val_lock,):
             
             # Get what the target pattern would be at this same measure
             target_measure = (current_chord_index + 1) % len(PIANO_PATTERNS[target_pattern_index])
-            UPCOMING_TARGET_CHORD = PIANO_PATTERNS[target_pattern_index][target_measure][0]
+            target_chord_result = find_next_chord_in_pattern(PIANO_PATTERNS, target_pattern_index, target_measure, 0)
+            UPCOMING_TARGET_CHORD = target_chord_result['chord'] if target_chord_result else PIANO_PATTERNS[target_pattern_index][target_measure][0]
             
             # Get the proto chord - the chord that comes before the target chord
             target_pattern = PIANO_PATTERNS[target_pattern_index]
             target_chord_index = target_measure  # We already calculated this above
             proto_chord_index = current_chord_index % len(PIANO_PATTERNS[target_pattern_index])
-            UPCOMING_PROTO_CHORD = target_pattern[proto_chord_index][0]
+            proto_chord_result = find_next_chord_in_pattern([target_pattern], 0, proto_chord_index, 0)
+            UPCOMING_PROTO_CHORD = proto_chord_result['chord'] if proto_chord_result else target_pattern[proto_chord_index][0]
 
             #print(f"Bass Thread just finished getting a bunch from piano")
             
@@ -3287,7 +3565,7 @@ def synth_sequencer_thread(stop_event, synth, synth_id, slider_val_lock,):
                     current_chord_symbol = TRANSITIONAL_CHORD_SYMBOL if TRANSITIONAL_CHORD_SYMBOL else CURRENT_CHORD_SYMBOL
                     #print(f"BASS DEBUG: Step {pattern_index}, Degree: {degree}, MIDI: {midi_note if 'midi_note' in locals() else 'calculating...'}")
                     #print(f"KEY DEBUG: current_key={current_key}, BASS_PREVIEW_KEY={BASS_PREVIEW_KEY}, transposed_base={base_midi_note + (BASS_PREVIEW_KEY if BASS_PREVIEW_KEY is not None else current_key)}")
-                    print(f"Step: {current_step}, current_chord_symbol: {current_chord_symbol}")
+                    #print(f"Step: {current_step}, current_chord_symbol: {current_chord_symbol}")
                     # Apply key transposition to bass - use preview key during transitions
                     if BASS_PREVIEW_KEY is not None:
                         transposed_base_midi_note = base_midi_note + BASS_PREVIEW_KEY
@@ -3301,18 +3579,20 @@ def synth_sequencer_thread(stop_event, synth, synth_id, slider_val_lock,):
                         next_chord_current_measure = measure_count % next_chord_progression_length
                         next_chord_next_measure_index = (next_chord_current_measure + 1) % next_chord_progression_length
                         next_chord_next_measure = PIANO_PATTERNS[UPCOMING_PATTERN_INDEX][next_chord_next_measure_index]
-                        next_chord = next_chord_next_measure[0]  # Get first element of next measure
+                        next_chord_result = find_next_chord_in_pattern(PIANO_PATTERNS, UPCOMING_PATTERN_INDEX, next_chord_current_measure, 0, target_pattern_index=UPCOMING_PATTERN_INDEX)
+                        next_chord = next_chord_result['chord'] if next_chord_result else None
                     else:
                         progression_length = len(PIANO_PATTERNS[current_pattern_index_local])
                         current_measure_in_progression = measure_count % progression_length
                         next_measure_index = (current_measure_in_progression + 1) % progression_length
                         next_measure = PIANO_PATTERNS[current_pattern_index_local][next_measure_index]
-                        next_chord = next_measure[0]  # Get first element of next measure
+                        next_chord_result = find_next_chord_in_pattern(PIANO_PATTERNS, current_pattern_index_local, current_measure_in_progression, current_step)
+                        next_chord = next_chord_result['chord'] if next_chord_result else None
                     #print(f"PROGRESSION DEBUG: measure_count={measure_count}, current_measure_in_progression={current_measure_in_progression if UPCOMING_PATTERN_INDEX is None else next_chord_current_measure}, progression_length={progression_length if UPCOMING_PATTERN_INDEX is None else next_chord_progression_length}")
                     # Use upcoming target chord if slider has moved
                     target_chord = UPCOMING_TARGET_CHORD if UPCOMING_TARGET_CHORD else None
 
-                    print(f"BASS CHORD DEBUG: next_chord={next_chord}, target_chord={target_chord}, proto_chord = {UPCOMING_PROTO_CHORD}, step={current_step}")
+                    #print(f"BASS CHORD DEBUG: next_chord={next_chord}, target_chord={target_chord}, proto_chord = {UPCOMING_PROTO_CHORD}, step={current_step}")
                     # Calculate the note using the modal scale for the current chord  
                     midi_note = get_bass_note(
                         degree_str=degree,
@@ -3324,10 +3604,16 @@ def synth_sequencer_thread(stop_event, synth, synth_id, slider_val_lock,):
 
                     # Use this calculated note
                     freq = freq_from_midi(midi_note)
-                    print(f"BASS MODAL DEBUG: Degree {degree} → MIDI {midi_note} using chord {current_chord_symbol} in key {BASS_PREVIEW_KEY} from pattern {current_pattern_index_local}")
+                    #print(f"BASS MODAL DEBUG: Degree {degree} → MIDI {midi_note} using chord {current_chord_symbol} in key {BASS_PREVIEW_KEY} from pattern {current_pattern_index_local}")
 
-                    synth.set_frequency(freq_from_midi(midi_note), synth_id)
-                    synth.note_on(synth_id)
+                    def delayed_bass_note(synth_id, freq):
+                        #print(f"FIRST SAMPLE TO SPEAKER - Synth {synth_id} at {time.time():.6f}")
+                        synth.set_frequency(freq, synth_id)
+                        synth.note_on(synth_id)
+
+                    freq = freq_from_midi(midi_note)
+                    threading.Timer(PORTAUDIO_SLOWDOWN, delayed_bass_note, args=(synth_id, freq)).start()
+                    
                     note_is_playing = True
                     
                     # Handle note duration based on the next step
@@ -3407,7 +3693,8 @@ def poly_synth_sequencer_thread(stop_event, synth_name, slider_val_lock):
 
     # Get the first chord of the starting pattern
     initial_progression = PIANO_PATTERNS[8]  # Neutral pattern
-    first_chord = initial_progression[0][0]  # First beat of first measure
+    first_chord_result = find_next_chord_in_pattern([initial_progression], 0, 0, 0)
+    first_chord = first_chord_result['chord'] if first_chord_result else initial_progression[0][0]
     if first_chord != 'c' and first_chord != 0:
         last_active_chord = first_chord
 
@@ -3445,6 +3732,9 @@ def poly_synth_sequencer_thread(stop_event, synth_name, slider_val_lock):
             last_processed_step = current_step
 
             # Handle pattern change at measure boundary
+            # DEBUG: Log at measure boundary (step 0)
+            if current_step == 0:
+                print(f"MEASURE BOUNDARY - Step: {current_step}, Pattern: {current_pattern_index_local}, Target: {target_pattern_index}")
             if target_pattern_index != current_pattern_index_local and current_step == 0:
                 #print(f"Step 2 Poly_SYnth Loop, step: {current_step}")
                 current_pattern_index_local = target_pattern_index
@@ -3461,12 +3751,16 @@ def poly_synth_sequencer_thread(stop_event, synth_name, slider_val_lock):
                 current_position = measure_count % len(new_progression)
                 #print(f"Current_Position: {current_position}")
                 if current_position > 0:
-                    proto_chord = new_progression[current_position][0]  # First beat of previous measure
+                    proto_chord_result = find_next_chord_in_pattern([new_progression], 0, current_position, 0)
+                    proto_chord = proto_chord_result['chord'] if proto_chord_result else new_progression[current_position][0]
                 else:
-                    proto_chord = new_progression[0][0]  # Last chord of progression
+                    proto_chord_result = find_next_chord_in_pattern([new_progression], 0, 0, 0)
+                    proto_chord = proto_chord_result['chord'] if proto_chord_result else new_progression[0][0]
                 
                 # Target is the next chord we'll play
-                target_chord = new_progression[(current_position+1) % len(new_progression)][0]
+                target_measure = (current_position+1) % len(new_progression)
+                target_chord_result = find_next_chord_in_pattern([new_progression], 0, target_measure, 0)
+                target_chord = target_chord_result['chord'] if target_chord_result else new_progression[target_measure][0]
                 
                 
                 # Calculate and apply key change
@@ -3546,9 +3840,21 @@ def poly_synth_sequencer_thread(stop_event, synth_name, slider_val_lock):
                 # Only play if chord_notes is a list (not 'c' or 0)
                 if isinstance(chord_notes, list):
                     # Always play the chord fresh to ensure proper triggering
-                    time.sleep(PIANO_DELAY_OFFSET)
-                    poly_synth.play_chord(chord_notes)
-                    print(f"PIANO: {chord_notes}, CHORD: {degree}, Key: {current_key}")
+                    def delayed_piano_chord(poly_synth, chord_notes, degree, current_key, current_step):
+                        #print(f"FIRST SAMPLE TO SPEAKER - Piano at {time.time():.6f}")
+                        poly_synth.play_chord(chord_notes)
+                        #print(f"PIANO: {chord_notes}, CHORD: {degree}, Key: {current_key}, step: {current_step}")
+
+                    # Apply delay pattern for piano (same as bass)
+                    step_idx = current_step % len(delay_patterns_ms[current_pattern_index_local])
+                    note_delay = delay_patterns_ms[current_pattern_index_local][step_idx]
+                    total_delay = (note_delay / 1000.0) + PIANO_DELAY_OFFSET  # Convert ms to seconds
+                    time.sleep(PIANO_DELAY_OFFSET + total_delay)
+                    # DEBUG: Log before piano chord trigger
+                    print(f"BEFORE PIANO CHORD - Step: {current_step}, Measure: {measure_count}, Chord: {degree}")
+
+                    threading.Timer(PORTAUDIO_SLOWDOWN, delayed_piano_chord, args=(poly_synth, chord_notes, degree, current_key, current_step)).start()
+                    print(f"PIANO: {chord_notes}, CHORD: {degree}, Key: {current_key}, step: {current_step}")
                     last_active_chord = degree
                     currently_sounding_chord = degree
                     
@@ -3670,7 +3976,6 @@ def sequencer_timing_only(stop_event, synth, slider_val_lock):
         if now >= master_next_trigger:
             # Trigger drums for this step
             trigger_drums_for_step(master_step, current_pattern_index, drum_delay * 1000)
-            
             # Wait for all sequencers to complete current step
             sequencer_barrier.wait()
 
@@ -3695,7 +4000,7 @@ def on_slider_change(val):
     global start_release, target_release
     global start_sustain, target_sustain
     global start_sine_gain, target_sine_gain
-    global start_square_gain, target_square_gain
+    global start_sample_gain, target_sample_gain
     global start_bpm, target_bpm, ramp_start_time, ramp_duration
     global start_fm_depth, target_fm_depth
     # ----------------------- LFO globals -----------------------
@@ -3734,14 +4039,22 @@ def on_slider_change(val):
     
     # Access the global synth_id
     global synth_id
+    
+    # Add compensation globals
+    global _last_slider_val
 
     with slider_val_lock:
         new_val = float(val)
+        old_val = _last_slider_val
         slider_val = new_val
 
         # Update EVERY synth in the registry
         for current_synth_id, synth_instance in SYNTH_INSTANCES.items():
             config = synth_instance.config
+            
+            # Apply compensation BEFORE changing parameters if there's a significant change
+            #if abs(new_val - old_val) > 0.01:  # Only compensate for significant changes
+            #    apply_parameter_compensation(synth_instance, old_val, new_val)
 
             # ADSR envelope parameters
             target_attack[current_synth_id] = slider_to_log_range(new_val, config["minAttack"], config["maxAttack"])
@@ -3751,7 +4064,7 @@ def on_slider_change(val):
 
             # Oscillator gains
             target_sine_gain[current_synth_id] = slider_to_log_gain(new_val, config["min_osc1_gain"], config["max_osc1_gain"])
-            target_square_gain[current_synth_id] = slider_to_log_gain(new_val, config["min_osc2_gain"], config["max_osc2_gain"])
+            target_sample_gain[current_synth_id] = slider_to_log_gain(new_val, config["min_osc2_gain"], config["max_osc2_gain"])
 
             # Store start points for ramps
             start_attack[current_synth_id] = target_attack[current_synth_id]
@@ -3763,7 +4076,7 @@ def on_slider_change(val):
             synth.set_sustain_level(target_sustain[current_synth_id], current_synth_id)
             
             start_sine_gain[current_synth_id] = target_sine_gain[current_synth_id]
-            start_square_gain[current_synth_id] = target_square_gain[current_synth_id]
+            start_sample_gain[current_synth_id] = target_sample_gain[current_synth_id]
 
             # FM depth
             target_fm_depth[current_synth_id] = slider_to_log_hybrid_range(new_val, config["minFmDepth"], config["maxFmDepth"])
@@ -3923,6 +4236,26 @@ def on_slider_change(val):
             # Immediate push so the user hears the change right away
             synth.set_bit_depth(target_bit_depth[current_synth_id], current_synth_id)
             synth.set_bit_mix(target_bit_mix[current_synth_id], current_synth_id)
+            
+            
+        # Update polyphonic synths (like piano) that have oscillators with min/max gains
+        for poly_synth_name, poly_synth in POLY_SYNTH_INSTANCES.items():
+            if hasattr(poly_synth, 'config') and 'oscillators' in poly_synth.config:
+                osc_list = poly_synth.config['oscillators']
+                
+                # Apply simple compensation for piano volume dip
+                apply_simple_piano_compensation(poly_synth, new_val)
+                
+                for voice in poly_synth.voices:
+                    for idx, osc in enumerate(osc_list):
+                        if idx < len(osc_list):
+                            min_g = float(osc.get("min_gain", 0.0))
+                            max_g = float(osc.get("max_gain", 1.0))
+                            g = slider_to_log_gain(new_val, min_g, max_g)
+                            synth.set_osc_gain_at(g, idx, voice.synth_id)
+        
+        # Update the last slider value for next comparison
+        _last_slider_val = new_val
 
 # ============================================================================
 # MAIN ENTRY POINT
