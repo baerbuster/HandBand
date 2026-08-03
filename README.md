@@ -263,11 +263,12 @@ for f in MI_*_Test.py; do python3 "$f"; done
 | `MI_Instrument_Test.py` | 29 |
 | `MI_Global_Parameters_Test.py` | smoke test (prints a table) |
 
-The suites are hand-rolled — each file runs its checks at import and prints a
-pass/fail summary. They lean on **property-based** assertions rather than fixed
-expected values, which is the right instinct for a stochastic system: that a
-result is monotonic in arousal, that no option is ever unreachable, that a count
-never exceeds its capacity, that the emotional extremes don't raise.
+The suites are hand-rolled — no pytest, no unittest. Each file runs its checks
+top to bottom and prints a pass/fail summary. They assert **invariants** rather
+than fixed expected values, which suits a system whose output is random by
+design: that a result rises monotonically with arousal, that no option is ever
+unreachable at any emotional extreme, that a count never exceeds its capacity,
+that the corners of the emotional range don't crash.
 
 ---
 
