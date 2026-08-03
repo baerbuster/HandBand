@@ -117,6 +117,6 @@ checkbox(controls, "Musical Intelligence", mi_var, mi_toggle).pack(anchor="w")
 checkbox(controls, "Chord Instrument", chord_inst_var, chord_inst_toggle).pack(anchor="w")
 checkbox(controls, "Bass Contour", bass_contour_var, bass_contour_toggle).pack(anchor="w")
 checkbox(controls, "Bass Pattern", bass_pattern_var, bass_pattern_toggle).pack(anchor="w")
-checkbox(controls, "Score  (Chords + Bass)", score_var, score_toggle).pack(anchor="w")
+checkbox(controls, "Score  (Full Band)", score_var, score_toggle).pack(anchor="w")
 
 input_val.window.mainloop()

@@ -69,8 +69,7 @@ python3 MI_Bass_Modes.py               # chord to church mode, degree to semiton
 ```
 
 `emote.py`, `MI_Chord_Progression_Engine.py`, `MI_Global_Parameters.py`,
-`MI_Pattern_Primitives.py`, and `MI_Song_Source.py` have no standalone demo —
-the progression engine, as the largest of them, is the one most worth adding.
+`MI_Pattern_Primitives.py`, and `MI_Song_Source.py` have no standalone demo.
 
 ### The views
 
@@ -81,7 +80,7 @@ the progression engine, as the largest of them, is the one most worth adding.
 | **Chord Instrument** | What the chord player actually does — hit / sustain / rest |
 | **Bass Contour** | The Fourier curve the bassline rides, in scale degrees |
 | **Bass Pattern** | The finished bass cell — the riff that repeats |
-| **Score (Chords + Bass)** | The whole band stacked like sheet music, drums included |
+| **Score (Full Band)** | Chords, bass, and drum tab stacked like sheet music |
 
 All six read one shared `SongSource`, so they always show the *same* song.
 Generation is stochastic; without that sharing, two windows on the same input
