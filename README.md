@@ -54,14 +54,23 @@ Modules import each other by bare name, so **run from inside `HandBand 4.0/`**.
 `tkinter` ships with python.org builds; some Linux distributions package it
 separately as `python3-tk`. Developed and run on macOS.
 
-Every module also runs standalone and prints an ASCII demonstration of itself:
+Eight modules run standalone and print a demonstration of themselves, mostly as
+ASCII grids sampled at several points across the emotional range:
 
 ```bash
-python3 MI_Groove_Delay_Engine.py     # groove vectors across the emotional range
-python3 MI_Bass_Instrument.py         # contour plots, rhythm cells, degree cells
-python3 MI_Chord_Library.py           # chord symbols to intervals
-python3 MI_Chord_Instrument.py        # performance charts at three emotional states
+python3 MI_Groove_Delay_Engine.py      # groove vectors across the emotional range
+python3 MI_Bass_Instrument.py          # contour plots, rhythm cells, degree cells
+python3 MI_Chord_Library.py            # chord symbols to intervals
+python3 MI_Chord_Instrument.py         # performance charts at three emotional states
+python3 MI_Accent_Pattern_Engine.py    # accent grids per emotional state
+python3 MI_Drum_Instrument.py          # the kit against the bass it couples to
+python3 MI_Instrument.py               # two contrasting instruments on the same data
+python3 MI_Bass_Modes.py               # chord to church mode, degree to semitone
 ```
+
+`emote.py`, `MI_Chord_Progression_Engine.py`, `MI_Global_Parameters.py`,
+`MI_Pattern_Primitives.py`, and `MI_Song_Source.py` have no standalone demo —
+the progression engine, as the largest of them, is the one most worth adding.
 
 ### The views
 
