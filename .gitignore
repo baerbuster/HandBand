@@ -1,0 +1,51 @@
+# ---- macOS / editor cruft ----
+.DS_Store
+.vscode/
+.idea/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ---- Compiled binaries ----
+*.so
+*.dylib
+*.dll
+*.o
+*.a
+legacy/programmable-song/ProgrammableSong
+legacy/programmable-song/RebuiltSynth
+
+# ---- Local Claude Code settings ----
+.claude/settings.local.json
+
+# ---- Local working notes ----
+REPO_CLEANUP.md
+
+# ---- Logs and oversized data dumps ----
+*.log
+legacy/programmable-song/sample_data.csv
+legacy/programmable-song/debug_click.csv
+legacy/programmable-song/debug_manual.csv
+legacy/programmable-song/debug_logs/
+
+# ---- Rendered audio output + DAW sessions (regenerable, hundreds of MB) ----
+*.ptx
+*.wfm
+legacy/programmable-song/ProgrammableLoop1.0/
+legacy/programmable-song/ProgrammableLoop2/
+legacy/programmable-song/Programmable Loop MoonStruck Demo/
+legacy/programmable-song/ProgrammableLoop 4 To The Floor/
+legacy/programmable-song/ProgrammableLoop 4 To The Floor 2/
+legacy/programmable-song/ProgrammableLoop Drums/
+
+# ---- Pre-git file snapshots ----
+# The numbered ProgrammableSong*.py copies and the dead-end experiments.
+# The numbered ones are now the commit history of
+# legacy/programmable-song/programmable_song.py; the dead ends were left
+# out deliberately (see legacy/README.md). Kept on disk, out of the repo.
+legacy/programmable-song/_pre_git_originals/
