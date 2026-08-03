@@ -77,7 +77,8 @@ personal calibration - that for a specific user,
 moving from anxiety to focus might require a
 particular arousal exponent or valence offset that
 differs from another user's optimal profile.
-Eventually, integration with Northstar will provide
+Eventually, integration with a novel Causal
+Inference-based Neurosymbolic Intelligence will provide
 historical context, allowing EMOTE to understand not
 just "input is at -0.3" but "user wants to reach
 their recorded 'deep focus' state and has been

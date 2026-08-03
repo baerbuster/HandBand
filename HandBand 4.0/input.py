@@ -20,8 +20,9 @@
 
 	The evolution path goes from GUI slider to single biosensor 
     (HRV or skin conductance) to multi-sensor fusion, and 
-    eventually integrates with Northstar for 
-    context-aware calibration. But through all phases, 
+    eventually integrates with a novel Causal Inference-based
+    Neurosymbolic Intelligence for
+    context-aware calibration. But through all phases,
     the interface stays simple: get the current state value, 
     check if sensor is connected, and report what type of 
     sensor is active. No downstream module needs to know or 

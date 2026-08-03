@@ -297,11 +297,11 @@ single float value. If the sensor fails, it should signal error clearly rather
 than produce garbage data.
 
 **Evolution path.** From GUI slider to single biosensor (HRV or skin
-conductance) to multi-sensor fusion, and eventually integration with Northstar
-for context-aware calibration. But through all phases, the interface stays
-simple: get the current state value, check if sensor is connected, and report
-what type of sensor is active. No downstream module needs to know or care what's
-actually providing that number.
+conductance) to multi-sensor fusion, and eventually integration with a novel
+Causal Inference-based Neurosymbolic Intelligence for context-aware calibration.
+But through all phases, the interface stays simple: get the current state value,
+check if sensor is connected, and report what type of sensor is active. No
+downstream module needs to know or care what's actually providing that number.
 
 > **As built:** a `tkinter` slider at 0.001 resolution, exposing
 > `get_input_value()`. The window is also the application's main window — the
@@ -383,7 +383,7 @@ EMOTE makes no assumptions about which dimensions matter for any given domain or
 emotional state — it simply computes all of them and provides the full
 mathematical profile. Domain applications downstream select whichever subset is
 relevant to their output medium, and eventually the feedback loop discovers
-through trial and error which dimensions actually drive effective emotional
+through causal inference which dimensions actually drive effective emotional
 navigation.
 
 > **Reality check:** none of these are computed today. Most require a *signal
@@ -400,12 +400,13 @@ dimensions and which transformation curves actually succeed at moving users
 between emotional states. It learns personal calibration — that for a specific
 user, moving from anxious to focused requires a particular dimensional profile
 that might differ from another user's optimal profile. Eventually EMOTE
-integrates with Northstar to access historical context and state definitions,
-allowing it to understand not just "input is at −0.3" but "user wants to reach
-their recorded 'deep focus' state and has been trending toward scattered
-attention for the past hour." The system discovers its own categories and
-optimal pathways rather than relying on predetermined emotional mappings, while
-maintaining the scientific framework of valence–arousal space as its foundation.
+integrates with a novel Causal Inference-based Neurosymbolic Intelligence to
+access historical context and state definitions, allowing it to understand not
+just "input is at −0.3" but "user wants to reach their recorded 'deep focus'
+state and has been trending toward scattered attention for the past hour." The
+system discovers its own categories and optimal pathways rather than relying on
+predetermined emotional mappings, while maintaining the scientific framework of
+valence–arousal space as its foundation.
 
 ### 3. Musical Intelligence — **BUILT**
 
@@ -471,7 +472,8 @@ creating chord progressions and melodic patterns that have never existed but
 that EMOTE's dimensional profile suggests will work. This evolution happens in
 coordination with EMOTE's learning — the two layers co-train, so Musical
 Intelligence's interpretations inform which dimensional profiles EMOTE discovers
-are effective. Musical Intelligence integrates with Northstar to understand not
+are effective. Musical Intelligence integrates with a novel Causal
+Inference-based Neurosymbolic Intelligence to understand not
 just the immediate emotional target but the broader context of user preferences,
 time of day, and cumulative listening history, allowing it to compose music that
 serves long-term optimization goals rather than just immediate state changes.
@@ -523,10 +525,11 @@ existed but that EMOTE's dimensional profile suggests will work. This evolution
 happens in coordination with both EMOTE and Musical Intelligence's learning —
 all three layers co-train, so Sonic Intelligence's timbral realizations inform
 which musical and dimensional profiles prove effective. Sonic Intelligence
-integrates with Northstar to understand not just the immediate sonic target but
-the broader context of listening environment, time of day, and cumulative
-exposure, allowing it to shape sound that serves long-term optimization goals
-rather than just immediate aesthetic preferences.
+integrates with a novel Causal Inference-based Neurosymbolic Intelligence to
+understand not just the immediate sonic target but the broader context of
+listening environment, time of day, and cumulative exposure, allowing it to
+shape sound that serves long-term optimization goals rather than just immediate
+aesthetic preferences.
 
 ### 5. Sequencer — **NOT STARTED**
 
@@ -564,18 +567,18 @@ Harmony Synthesizer, Percussion Synthesizer, and Melody Synthesizer — configur
 for its specific requirements. Synthesizer receives note-on and note-off events
 from Sequencer specifying **when** to play, symbolic note information from
 Musical Intelligence specifying **what** to play, and timbral parameters from
-Sonic Intelligence specifying **how** to sound. It handles both synthesized waveform
-generation and sample-based playback, with each instance configured to use
-whichever approach suits its role — percussion typically uses sample playback
-while bass, harmony, and melody use oscillator synthesis, though any combination
-is possible. It generates audio at a configurable sample rate, managing
-polyphony and voice allocation as needed for its role. Synthesizer applies
-sample-level smoothing to all parameter changes to prevent audio artifacts like
-clicks and pops, interpolating between parameter values according to transition
-curves specified by Sonic Intelligence. Synthesizer has no interpretive role —
-it executes rendering commands with sample-accurate precision, providing the DSP
-infrastructure that transforms abstract musical and sonic decisions into actual
-sound waves.
+Sonic Intelligence specifying **how** to sound. It handles both synthesized
+waveform generation and sample-based playback, with each instance configured to
+use whichever approach suits its role — percussion typically uses sample
+playback while bass, harmony, and melody use oscillator synthesis, though any
+combination is possible. It generates audio at a configurable sample rate,
+managing polyphony and voice allocation as needed for its role. Synthesizer
+applies sample-level smoothing to all parameter changes to prevent audio
+artifacts like clicks and pops, interpolating between parameter values according
+to transition curves specified by Sonic Intelligence. Synthesizer has no
+interpretive role — it executes rendering commands with sample-accurate
+precision, providing the DSP infrastructure that transforms abstract musical and
+sonic decisions into actual sound waves.
 
 Synthesizer works with oscillator generation and mixing, sample playback and
 looping, ADSR envelope processing, filter chains and modulation, LFO and FM
@@ -623,13 +626,13 @@ characteristics succeed at emotional navigation for specific users. The system
 learns personal mixing preferences, finding that some users respond to wider
 stereo fields and brighter master EQ while others need centered mono sources and
 warmer tones. Eventually Mix/Master executes sophisticated environment-aware
-mastering decisions informed by Northstar, adjusting compression ratios for
-noisy listening environments, compensating master EQ for different playback
-systems, and adapting overall loudness to time of day and user context. This
-evolution happens in coordination with the Global Sonic Layer's learning —
-Mix/Master doesn't learn independently but rather becomes increasingly
-sophisticated at executing the mixing vision that the Global Sonic Layer
-develops through experience.
+mastering decisions informed by a novel Causal Inference-based Neurosymbolic
+Intelligence, adjusting compression ratios for noisy listening environments,
+compensating master EQ for different playback systems, and adapting overall
+loudness to time of day and user context. This evolution happens in coordination
+with the Global Sonic Layer's learning — Mix/Master doesn't learn independently
+but rather becomes increasingly sophisticated at executing the mixing vision
+that the Global Sonic Layer develops through experience.
 
 ### 8. Output — **NOT STARTED**
 
@@ -709,11 +712,6 @@ by the harmonic engine and inherited by every other engine.
 **H / C / R** — the per-slot alphabet: **H**it (strike), **C**ontinue (still
 ringing), **R**est (silence). The bass's internal rhythm calls a rest `X` before
 realization converts it to `R`.
-
-**Northstar** — referenced throughout the evolution paths as the future source
-of historical context, user state definitions, and environmental awareness.
-*It is not yet specified or built, and no definition exists anywhere in this
-repository or its code.* It should be documented before it is depended on.
 
 ---
 
