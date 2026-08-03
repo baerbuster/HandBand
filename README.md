@@ -2,10 +2,9 @@
 
 **Modular Generative Emotional Feedback through song.**
 
-HandBand reads a biofeedback signal from wearable tech, collapses it into a
-single number describing how you feel, and composes music from it — in real
-time, from scratch, every time. Not a playlist, not a preset. One value enters
-the system, and a band comes out the other side.
+HandBand reads a single number describing how you feel, and composes music from
+it — in real time, from scratch, every time. Not a playlist, not a preset. One
+value enters the system, and a band comes out the other side.
 
 The bet is that music is a control surface for emotional state, and that the
 mapping from state to music can be written down, then eventually learned.
