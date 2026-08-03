@@ -58,7 +58,7 @@ EMOTE contains pure mathematical transformation
 functions but makes no domain-specific decisions
 about notes, sounds, or musical implementation. It
 outputs abstract numerical values (valence and
-arousal) that Musical Domain and Sonic Domain
+arousal) that Musical Intelligence and Sonic Intelligence
 interpret according to their own specialized logic.
 This separation of concerns ensures EMOTE remains a
 clean mathematical layer - transforming emotional

@@ -2,9 +2,10 @@
 
 **Modular Generative Emotional Feedback through song.**
 
-HandBand reads a single number describing how you feel, and composes music from
-it — in real time, from scratch, every time. Not a playlist, not a preset. One
-value enters the system, and a band comes out the other side.
+HandBand reads a biofeedback signal from wearable tech, collapses it into a
+single number describing how you feel, and composes music from it — in real
+time, from scratch, every time. Not a playlist, not a preset. One value enters
+the system, and a band comes out the other side.
 
 The bet is that music is a control surface for emotional state, and that the
 mapping from state to music can be written down, then eventually learned.
@@ -21,8 +22,8 @@ still specification.
 |---|---|---|---|
 | 1 | **Input** | **Built** — GUI slider, −1 … +1 | `input.py` |
 | 2 | **EMOTE** | **Built (first-pass)** — valence + arousal only | `emote.py` |
-| 3 | **Musical Domain** | **Built** — global params + chord, bass, drum instruments | `MI_*.py` (20 files) |
-| 4 | **Sonic Domain** | Not started | — |
+| 3 | **Musical Intelligence** | **Built** — global params + chord, bass, drum instruments | `MI_*.py` (20 files) |
+| 4 | **Sonic Intelligence** | Not started | — |
 | 5 | **Sequencer** | Not started | — |
 | 6 | **Synthesizer** | Not started (prototype exists in `legacy/`) | — |
 | 7 | **Mix/Master** | Not started | — |
@@ -33,30 +34,22 @@ So the system currently composes a complete song — harmony, bassline, drum kit
 accent map, groove feel — and **renders it as notation rather than audio.** The
 symbolic half is real and tested. The audio half is not written yet.
 
-`MusicDomain.py` is an empty placeholder from January. The Musical Domain is
-built; it lives in the `MI_*` files.
-
-> **A note on naming.** The design document calls module 3 the **Musical
-> Domain**. The code calls it **Musical Intelligence** and prefixes its files
-> `MI_`. They are the same layer. This README uses "Musical Domain" for the
-> architectural role and `MI_` when pointing at files.
-
 ---
 
 ## Quick start
 
 Requires **Python 3** and nothing else. The current system has **zero
-third-party dependencies** — only `math`, `random`, `collections`, and
-`tkinter` from the standard library. (The heavy audio stack — numpy, scipy,
-pyaudio, librosa — belongs to the 2025 prototype in `legacy/`, not to this.)
+third-party dependencies** — only `math`, `random`, `collections`, and `tkinter`
+from the standard library. (The heavy audio stack — numpy, scipy, pyaudio,
+librosa — belongs to the 2025 prototype in `legacy/`, not to this.)
 
 ```bash
 cd "HandBand 4.0"
 python3 HandBandMain.py
 ```
 
-That opens the main window: one slider, six checkboxes. The slider is the
-system input. Each checkbox opens a view onto the same generated song.
+That opens the main window: one slider, six checkboxes. The slider is the system
+input. Each checkbox opens a view onto the same generated song.
 
 Modules import each other by bare name, so **run from inside `HandBand 4.0/`**.
 `tkinter` ships with python.org builds; some Linux distributions package it
@@ -99,9 +92,9 @@ Input          a single float, -1 .. +1
   |
 EMOTE          -> valence, arousal        (the emotional coordinates)
   |
-  +--> Musical Domain    -> WHAT to play  (notes, rhythm, form)   [BUILT]
+  +--> Musical Intelligence    -> WHAT to play  (notes, rhythm, form)   [BUILT]
   |
-  +--> Sonic Domain      -> HOW it sounds (timbre, envelopes)     [planned]
+  +--> Sonic Intelligence      -> HOW it sounds (timbre, envelopes)     [planned]
               |
 Sequencer      -> WHEN each note fires, sample-accurate            [planned]
               |
@@ -112,10 +105,10 @@ Mix/Master     -> balance, space, glue                             [planned]
 Output         -> the listener                                     [planned]
 ```
 
-The separation is the whole point. **Musical Domain decides what to play and
-knows nothing about sound. Sonic Domain decides how it sounds and knows nothing
-about notes.** Collapsing those two is what made the 2025 prototype
-unmaintainable; keeping them apart is what this architecture is for.
+The separation is the whole point. **Musical Intelligence decides what to play
+and knows nothing about sound. Sonic Intelligence decides how it sounds and
+knows nothing about notes.** Collapsing those two is what made the 2025
+prototype unmaintainable; keeping them apart is what this architecture is for.
 
 ---
 
@@ -158,9 +151,9 @@ emerges from harmony.** Every other engine inherits this same form rather than
 inventing its own, so the arrangement shares one structure.
 
 **2. Chord progression** (`create_chord_progression`)
-Each section's chords are drawn from the diatonic pool by a weighted Markov
-walk combining three forces: *valence affinity* (I is bright at +1.0, vii° is
-dark at −1.0), *harmonic transition gravity* (V pulls to I with weight 4), and
+Each section's chords are drawn from the diatonic pool by a weighted Markov walk
+combining three forces: *valence affinity* (I is bright at +1.0, vii° is dark at
+−1.0), *harmonic transition gravity* (V pulls to I with weight 4), and
 *novelty pressure*. A cadence is then forced onto the ending — authentic,
 plagal, half, or deceptive, chosen by valence and arousal. Above arousal 0.85,
 chords take diatonic 7ths and 9ths. Finally a duration archetype (front, back,
@@ -191,9 +184,9 @@ each pairing a shared emotional signal with a per-instrument parameter:
 | Syncopation | valence | `syncopation_follow` → pull toward offbeats |
 | Voicing | arousal | how far off the voice-led baseline to rotate |
 
-A deliberate design choice runs through all of it: **a weight can be lowered
-but never zeroed.** Every option stays reachable at every emotional extreme.
-Nothing is ever forbidden — only made unlikely.
+A deliberate design choice runs through all of it: **a weight can be lowered but
+never zeroed.** Every option stays reachable at every emotional extreme. Nothing
+is ever forbidden — only made unlikely.
 
 **6. Realization**
 Each instrument emits the *same per-slot shape*, so a consumer reads all three
@@ -223,10 +216,10 @@ probability, phrase endpoint.
 **scale degrees rather than semitones**, so every value it passes through is
 already diatonic and there are no chromatic notes to filter out. Valence tilts
 it (up to a full octave of climb or fall across the cell); arousal makes it
-wiggle, as a sum of equal-weight harmonics with a cutoff at
-`n_max = 1 + (N/2 − 1) × arousal` — one slow bump when calm, motion up to the
-Nyquist harmonic when frantic. Equal weight is required: a rolloff would
-suppress the fast harmonics and the cutoff would stop meaning anything.
+wiggle, as a sum of equal-weight harmonics with a cutoff at `n_max = 1 + (N/2 −
+1) × arousal` — one slow bump when calm, motion up to the Nyquist harmonic when
+frantic. Equal weight is required: a rolloff would suppress the fast harmonics
+and the cutoff would stop meaning anything.
 *Tier 3* folds rhythm and contour into one cell of symbolic degrees.
 *Tier 4* points those key-relative degrees at the *sounding chord*, reading each
 against that chord's root and implied church mode — so the same symbolic degree
@@ -266,8 +259,8 @@ for f in MI_*_Test.py; do python3 "$f"; done
 The suites are hand-rolled — each file runs its checks at import and prints a
 pass/fail summary. They lean on **property-based** assertions rather than fixed
 expected values, which is the right instinct for a stochastic system: that a
-result is monotonic in arousal, that no option is ever unreachable, that a
-count never exceeds its capacity, that the emotional extremes don't raise.
+result is monotonic in arousal, that no option is ever unreachable, that a count
+never exceeds its capacity, that the emotional extremes don't raise.
 
 ---
 
@@ -320,7 +313,7 @@ dimensions — some might scale exponentially, others logarithmically, others
 linearly. EMOTE contains all the pure mathematical functions and music theory
 primitives needed for these transformations, but it never makes domain-specific
 decisions about notes or sounds. It outputs abstract numerical values that
-Musical Domain and Sonic Domain can interpret however they need to.
+Musical Intelligence and Sonic Intelligence can interpret however they need to.
 
 #### Scientific foundation
 
@@ -406,28 +399,28 @@ attention for the past hour." The system discovers its own categories and
 optimal pathways rather than relying on predetermined emotional mappings, while
 maintaining the scientific framework of valence–arousal space as its foundation.
 
-### 3. Musical Domain — **BUILT**
+### 3. Musical Intelligence — **BUILT**
 
-Musical Domain is the bridge between EMOTE's abstract information theory and
-concrete musical decisions. It subscribes to whichever dimensions from EMOTE are
-relevant to its domain and interprets them through transformation functions.
-Musical Domain operates in two layers: a **Global Layer** that interprets EMOTE
-dimensions to establish key, tonality, chord progressions, tempo, meter, and
-overall harmonic density, followed by **Role-Specific Interpreters** that
+Musical Intelligence is the bridge between EMOTE's abstract information theory
+and concrete musical decisions. It subscribes to whichever dimensions from EMOTE
+are relevant to its domain and interprets them through transformation functions.
+Musical Intelligence operates in two layers: a **Global Layer** that interprets
+EMOTE dimensions to establish key, tonality, chord progressions, tempo, meter,
+and overall harmonic density, followed by **Role-Specific Interpreters** that
 translate this shared musical context into specific parts. The Percussion
 Interpreter handles rhythmic patterns, accent placement, and groove. The Bass
 Interpreter constructs basslines and manages root movement. The Harmony
 Interpreter determines chord voicings, harmonic rhythm, and texture. The Melody
 Interpreter creates melodic lines, counterpoint, and lead material.
 
-Musical Domain only decides **WHAT** to play — the symbolic structure of the
-output — without any knowledge of timbre, synthesis, or sound design. *It's much
-closer to the sheet music of the program.* It has no knowledge of how things will
-sound, only what will be played. Its output is purely structural information
-that Sequencer will organize temporally and Synthesizer will render as actual
-audio.
+Musical Intelligence only decides **WHAT** to play — the symbolic structure of
+the output — without any knowledge of timbre, synthesis, or sound design. *It's
+much closer to the sheet music of the program.* It has no knowledge of how
+things will sound, only what will be played. Its output is purely structural
+information that Sequencer will organize temporally and Synthesizer will render
+as actual audio.
 
-Musical Domain works with scales and modes, chord structures, harmonic
+Musical Intelligence works with scales and modes, chord structures, harmonic
 progressions, melodic intervals, rhythm patterns, accent patterns, groove
 patterns, voice leading concepts, tonality, tempo, and meter. These elements
 combine to create the complete symbolic musical structure that downstream
@@ -458,73 +451,74 @@ modules will realize as actual sound.
 **Evolution path.** From hardcoded progressions to learned harmonic
 intelligence. Initially, chord progressions, scale selections, and voice leading
 rules are manually defined based on music theory intuition. As the feedback loop
-closes with biosensor input, Musical Domain begins learning which
+closes with biosensor input, Musical Intelligence begins learning which
 interpretations of EMOTE's dimensional outputs actually succeed at emotional
 navigation — discovering that certain entropy values map to specific harmonic
 densities, or that particular periodicity profiles translate to rhythmic
 patterns that reliably induce target states. The system learns personal harmonic
 preferences, finding that some users respond to modal interchange while others
-need simpler diatonic movement. Eventually Musical Domain moves beyond selecting
-from preset progressions to generating novel harmonic sequences, creating chord
-progressions and melodic patterns that have never existed but that EMOTE's
-dimensional profile suggests will work. This evolution happens in coordination
-with EMOTE's learning — the two layers co-train, so Musical Domain's
-interpretations inform which dimensional profiles EMOTE discovers are effective.
-Musical Domain integrates with Northstar to understand not just the immediate
-emotional target but the broader context of user preferences, time of day, and
-cumulative listening history, allowing it to compose music that serves long-term
-optimization goals rather than just immediate state changes.
+need simpler diatonic movement. Eventually Musical Intelligence moves beyond
+selecting from preset progressions to generating novel harmonic sequences,
+creating chord progressions and melodic patterns that have never existed but
+that EMOTE's dimensional profile suggests will work. This evolution happens in
+coordination with EMOTE's learning — the two layers co-train, so Musical
+Intelligence's interpretations inform which dimensional profiles EMOTE discovers
+are effective. Musical Intelligence integrates with Northstar to understand not
+just the immediate emotional target but the broader context of user preferences,
+time of day, and cumulative listening history, allowing it to compose music that
+serves long-term optimization goals rather than just immediate state changes.
 
 > Every tunable in this layer is a named, centralized constant rather than an
 > inline magic number — deliberately, so the whole parameter set can eventually
 > become a trainable model rather than a hand-tuned one.
 
-### 4. Sonic Domain — **NOT STARTED**
+### 4. Sonic Intelligence — **NOT STARTED**
 
-Sonic Domain is the bridge between Musical Domain's symbolic structure and the
-actual timbral characteristics of sound. It subscribes to whichever dimensions
-from EMOTE are relevant to sound design and interprets them through
-transformation functions. Sonic Domain operates in two layers: a **Global Sonic
-Layer** that interprets EMOTE dimensions to establish overall timbral aesthetic,
-spectral character, and textural density, followed by **Role-Specific Sonic
-Interpreters** that apply this shared sonic context to each musical role. The
-Percussion Sonic Interpreter handles drum timbres, transient shaping, and
-rhythmic texture. The Bass Sonic Interpreter determines low-frequency character,
-harmonic content, and sustain characteristics. The Harmony Sonic Interpreter
-establishes chord timbres, spatial width, and harmonic color. The Melody Sonic
-Interpreter creates lead timbres, articulation, and expressive shaping.
+Sonic Intelligence is the bridge between Musical Intelligence's symbolic
+structure and the actual timbral characteristics of sound. It subscribes to
+whichever dimensions from EMOTE are relevant to sound design and interprets them
+through transformation functions. Sonic Intelligence operates in two layers: a
+**Global Sonic Layer** that interprets EMOTE dimensions to establish overall
+timbral aesthetic, spectral character, and textural density, followed by
+**Role-Specific Sonic Interpreters** that apply this shared sonic context to
+each musical role. The Percussion Sonic Interpreter handles drum timbres,
+transient shaping, and rhythmic texture. The Bass Sonic Interpreter determines
+low-frequency character, harmonic content, and sustain characteristics. The
+Harmony Sonic Interpreter establishes chord timbres, spatial width, and harmonic
+color. The Melody Sonic Interpreter creates lead timbres, articulation, and
+expressive shaping.
 
-Sonic Domain only decides **HOW** things sound — the timbral and textural
+Sonic Intelligence only decides **HOW** things sound — the timbral and textural
 qualities — without knowledge of what notes are being played or when. Its output
 is synthesis parameter configurations that Synthesizer will use to generate
 actual audio.
 
-Sonic Domain works with envelope shaping, filtering and filter modulation,
+Sonic Intelligence works with envelope shaping, filtering and filter modulation,
 modulation systems, distortion and saturation, spectral processing, waveform
 selection and mixing, spatial positioning, and dynamic processing. These
 elements combine to create the complete timbral profile that transforms Musical
-Domain's symbolic structure into perceptually distinct sound.
+Intelligence's symbolic structure into perceptually distinct sound.
 
 **Evolution path.** From hardcoded synthesis parameters to learned timbral
 intelligence. Initially, envelope curves, filter settings, and effect chains are
 manually defined based on sound design intuition. As the feedback loop closes
-with biosensor input, Sonic Domain begins learning which interpretations of
-EMOTE's dimensional outputs actually succeed at emotional navigation —
+with biosensor input, Sonic Intelligence begins learning which interpretations
+of EMOTE's dimensional outputs actually succeed at emotional navigation —
 discovering that certain complexity values map to specific filter resonance
 profiles, or that particular spectral density dimensions translate to waveform
 mixing ratios that reliably induce target states. The system learns personal
 timbral preferences, finding that some users respond to warm saturated tones
-while others need clean precise articulation. Eventually Sonic Domain moves
-beyond selecting from preset patches to generating novel timbral configurations,
-creating synthesis parameter combinations that have never existed but that
-EMOTE's dimensional profile suggests will work. This evolution happens in
-coordination with both EMOTE and Musical Domain's learning — all three layers
-co-train, so Sonic Domain's timbral realizations inform which musical and
-dimensional profiles prove effective. Sonic Domain integrates with Northstar to
-understand not just the immediate sonic target but the broader context of
-listening environment, time of day, and cumulative exposure, allowing it to
-shape sound that serves long-term optimization goals rather than just immediate
-aesthetic preferences.
+while others need clean precise articulation. Eventually Sonic Intelligence
+moves beyond selecting from preset patches to generating novel timbral
+configurations, creating synthesis parameter combinations that have never
+existed but that EMOTE's dimensional profile suggests will work. This evolution
+happens in coordination with both EMOTE and Musical Intelligence's learning —
+all three layers co-train, so Sonic Intelligence's timbral realizations inform
+which musical and dimensional profiles prove effective. Sonic Intelligence
+integrates with Northstar to understand not just the immediate sonic target but
+the broader context of listening environment, time of day, and cumulative
+exposure, allowing it to shape sound that serves long-term optimization goals
+rather than just immediate aesthetic preferences.
 
 ### 5. Sequencer — **NOT STARTED**
 
@@ -532,21 +526,21 @@ Sequencer is HandBand's universal temporal coordinator, running at audio sample
 rate to provide the master clock for the entire system. It operates at 44.1 kHz,
 translating between continuous audio time and quantized musical time,
 calculating which musical step, beat, and measure correspond to each sample
-count based on tempo and meter information from Musical Domain. It triggers
-note-on and note-off events at precisely the right sample moments, manages loop
-wraparound to maintain consistent cycle length, and ensures sample-accurate
-synchronization across all Synthesizer instances. Sequencer has no interpretive
-role — it executes timing decisions made by Musical Domain with mathematical
-precision, providing the infrastructure that allows all other modules to operate
-in coordinated time.
+count based on tempo and meter information from Musical Intelligence. It
+triggers note-on and note-off events at precisely the right sample moments,
+manages loop wraparound to maintain consistent cycle length, and ensures
+sample-accurate synchronization across all Synthesizer instances. Sequencer has
+no interpretive role — it executes timing decisions made by Musical Intelligence
+with mathematical precision, providing the infrastructure that allows all other
+modules to operate in coordinated time.
 
 Sequencer works with sample-accurate timing calculations, tempo and meter
 conversion, event scheduling and triggering, loop boundary management, latency
 compensation, and multi-synthesizer synchronization. These elements combine to
-translate Musical Domain's abstract temporal structure into the precise
+translate Musical Intelligence's abstract temporal structure into the precise
 sample-by-sample timing that Synthesizer needs to generate continuous audio.
 
-> **Interface already fixed.** Musical Domain emits a per-slot stream in one
+> **Interface already fixed.** Musical Intelligence emits a per-slot stream in one
 > uniform shape — `{"type": "H", "notes": [...], "accent": <dB>, "timing":
 > <offset>}` for a strike, `{"type": "C"}` for a hold, `{"type": "R"}` for
 > silence — identical across chords, bass, and every drum element. Turning that
@@ -561,8 +555,8 @@ parameters. Each role has its own Synthesizer instance — Bass Synthesizer,
 Harmony Synthesizer, Percussion Synthesizer, and Melody Synthesizer — configured
 for its specific requirements. Synthesizer receives note-on and note-off events
 from Sequencer specifying **when** to play, symbolic note information from
-Musical Domain specifying **what** to play, and timbral parameters from Sonic
-Domain specifying **how** to sound. It handles both synthesized waveform
+Musical Intelligence specifying **what** to play, and timbral parameters from
+Sonic Intelligence specifying **how** to sound. It handles both synthesized waveform
 generation and sample-based playback, with each instance configured to use
 whichever approach suits its role — percussion typically uses sample playback
 while bass, harmony, and melody use oscillator synthesis, though any combination
@@ -570,8 +564,8 @@ is possible. It generates audio at a configurable sample rate, managing
 polyphony and voice allocation as needed for its role. Synthesizer applies
 sample-level smoothing to all parameter changes to prevent audio artifacts like
 clicks and pops, interpolating between parameter values according to transition
-curves specified by Sonic Domain. Synthesizer has no interpretive role — it
-executes rendering commands with sample-accurate precision, providing the DSP
+curves specified by Sonic Intelligence. Synthesizer has no interpretive role —
+it executes rendering commands with sample-accurate precision, providing the DSP
 infrastructure that transforms abstract musical and sonic decisions into actual
 sound waves.
 
@@ -579,9 +573,9 @@ Synthesizer works with oscillator generation and mixing, sample playback and
 looping, ADSR envelope processing, filter chains and modulation, LFO and FM
 synthesis, effects processing including distortion and saturation, voice
 allocation for polyphonic parts, sample-level parameter interpolation, and audio
-buffer management. These elements combine to render Musical Domain's symbolic
-structure with Sonic Domain's timbral characteristics into continuous audio
-streams that are mixed and sent to Output.
+buffer management. These elements combine to render Musical Intelligence's
+symbolic structure with Sonic Intelligence's timbral characteristics into
+continuous audio streams that are mixed and sent to Output.
 
 > A working C++ synthesis engine — oscillators, filters, ADSR, effects, click
 > detection, sample playback through `ctypes` — exists in
@@ -719,9 +713,9 @@ repository or its code.* It should be documented before it is depended on.
 
 `legacy/programmable-song/` holds the system HandBand grew out of — a realtime
 generative song engine in Python driving a C++ synthesis library, developed
-April–October 2025. It ran and it made music. It also grew into a single
-199 KB file, which is exactly why the current architecture separates symbolic
-decisions from sound.
+April–October 2025. It ran and it made music. It also grew into a single 199 KB
+file, which is exactly why the current architecture separates symbolic decisions
+from sound.
 
 Its history was reconstructed from dated file snapshots and is preserved in this
 repo's commit log; `v1.0`, `v2.0`, `v3.0`, and `v3.1` are tagged. See

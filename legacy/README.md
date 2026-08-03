@@ -17,7 +17,7 @@ less maintainable as it grew — `programmable_song.py` ends at 199 KB in
 a single file.
 
 That ceiling is why HandBand 4.0 exists. The current system separates
-emotional mapping (EMOTE) from musical decisions (the Musical Domain
+emotional mapping (EMOTE) from musical decisions (the Musical Intelligence
 instruments) from sound, which is precisely what this codebase could not
 do.
 
