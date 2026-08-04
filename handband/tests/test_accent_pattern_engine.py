@@ -26,6 +26,7 @@ Tests marked "(visual)" pass as long as they don't crash.
 """
 
 import random
+import sys
 from collections import Counter
 from handband.mi.accent_pattern_engine import (
     accent_density_calculator,
@@ -572,6 +573,11 @@ def main():
     else:
         print("\nAll tests passed.")
 
+    # Exit non-zero on failure, so a script or CI job running this
+    # standalone actually fails instead of printing "1 failed" and
+    # reporting success.
+    return 1 if failed else 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -1,0 +1,41 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.13 is the development version. The rest prove the code isn't
+        # tied to it -- nothing here uses version-gated syntax or stdlib
+        # APIs. 3.8 and 3.9 are past end-of-life, so they're not tested.
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # pytest is the only dependency, and only for the tests. The app
+      # itself runs on the standard library alone.
+      - run: pip install pytest
+
+      # pytest.ini scopes collection to handband/tests.
+      - run: pytest
+
+      # The suites also run standalone, with no pytest at all. Guarding
+      # that path here keeps it from rotting -- it's the mode that keeps
+      # the project dependency-free.
+      - name: standalone runner
+        run: |
+          for f in handband/tests/test_*.py; do
+            python3 -m "handband.tests.$(basename "$f" .py)" || exit 1
+          done

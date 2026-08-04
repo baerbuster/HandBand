@@ -21,6 +21,7 @@ suites. Covers the spec's required list:
 """
 
 import random
+import sys
 
 from handband.mi.drum_instrument import (
     DrumElement,
@@ -607,6 +608,11 @@ def main():
     else:
         print("\nAll tests passed.")
 
+    # Exit non-zero on failure, so a script or CI job running this
+    # standalone actually fails instead of printing "1 failed" and
+    # reporting success.
+    return 1 if failed else 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -1,5 +1,7 @@
 # HandBand
 
+[![tests](https://github.com/baerbuster/HandBand/actions/workflows/tests.yml/badge.svg)](https://github.com/baerbuster/HandBand/actions/workflows/tests.yml)
+
 **Modular Generative Emotional Feedback through song.**
 
 HandBand reads a single number describing how you feel, and composes music from

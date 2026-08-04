@@ -17,6 +17,7 @@ Covers the four shared functions plus the constructor:
 """
 
 import random
+import sys
 from handband.mi.instrument import (
     Instrument,
     MAX_ACCENT_DB,
@@ -366,6 +367,11 @@ def main():
     else:
         print("\nAll tests passed.")
 
+    # Exit non-zero on failure, so a script or CI job running this
+    # standalone actually fails instead of printing "1 failed" and
+    # reporting success.
+    return 1 if failed else 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
