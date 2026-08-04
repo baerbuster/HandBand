@@ -90,34 +90,19 @@ def a_pattern(measures):
     letters = [chr(65 + i) for i in range(n)]
     return ['A'] + [random.choice(letters) for _ in range(n - 1)]
 
-
-# ============================================================
-# ACCENT_DENSITY_CALCULATOR TESTS
-# ============================================================
-
-print("\n" + "=" * 60)
-print("ACCENT_DENSITY_CALCULATOR")
-print("=" * 60)
-
 def test_adc_returns_int():
     result = accent_density_calculator(2, 0.5)
     assert isinstance(result, int), f"Expected int, got {type(result)}"
-
-run_test("returns integer", test_adc_returns_int)
 
 def test_adc_minimum_is_one():
     for _ in range(500):
         result = accent_density_calculator(random.choice(PROG_LENGTHS), random.random())
         assert result >= 1, f"Got {result}, expected >= 1"
 
-run_test("never returns less than 1", test_adc_minimum_is_one)
-
 def test_adc_arousal_zero_gives_one():
     for m in PROG_LENGTHS:
         result = accent_density_calculator(m, 0.0)
         assert result == 1, f"arousal=0 should give 1, got {result} for measures={m}"
-
-run_test("arousal=0 always gives minimum density of 1", test_adc_arousal_zero_gives_one)
 
 def test_adc_known_values():
     # p * b * x with b = MAX_ACCENTS_PER_MEASURE
@@ -125,8 +110,6 @@ def test_adc_known_values():
         f"1 measure at arousal 1.0 should be {MAX_ACCENTS_PER_MEASURE}"
     assert accent_density_calculator(2, 0.5) == round(2 * MAX_ACCENTS_PER_MEASURE * 0.5)
     assert accent_density_calculator(4, 1.0) == round(4 * MAX_ACCENTS_PER_MEASURE * 1.0)
-
-run_test("matches p*b*x for known inputs", test_adc_known_values)
 
 def test_adc_monotonic_in_arousal():
     for m in PROG_LENGTHS:
@@ -137,8 +120,6 @@ def test_adc_monotonic_in_arousal():
                 f"measures={m}: density not monotonic at arousal={a}: {curr} < {prev}"
             prev = curr
 
-run_test("monotonically increases with arousal", test_adc_monotonic_in_arousal)
-
 def test_adc_monotonic_in_measures():
     prev = accent_density_calculator(1, 0.7)
     for m in [2, 4, 8]:
@@ -146,23 +127,10 @@ def test_adc_monotonic_in_measures():
         assert curr >= prev, f"Density not monotonic: measures={m} gave {curr} < {prev}"
         prev = curr
 
-run_test("monotonically increases with section measures", test_adc_monotonic_in_measures)
-
-
-# ============================================================
-# ACCENT_ARCHETYPE_CALCULATOR TESTS
-# ============================================================
-
-print("\n" + "=" * 60)
-print("ACCENT_ARCHETYPE_CALCULATOR")
-print("=" * 60)
-
 def test_aac_valid_outputs():
     for _ in range(TRIALS):
         result = accent_archetype_calculator()
         assert result in VALID_ARCHETYPES, f"Got invalid archetype: '{result}'"
-
-run_test("always returns a valid archetype", test_aac_valid_outputs)
 
 def test_aac_roughly_uniform():
     counts = Counter()
@@ -174,24 +142,11 @@ def test_aac_roughly_uniform():
             f"'{archetype}' at {ratio*100:.1f}%, expected ~16.7%"
     distribution_report("all archetypes", counts, TRIALS)
 
-run_test("roughly uniform distribution over 6 archetypes", test_aac_roughly_uniform)
-
-
-# ============================================================
-# CHOOSE_ACCENT_ARCHETYPE TESTS
-# ============================================================
-
-print("\n" + "=" * 60)
-print("CHOOSE_ACCENT_ARCHETYPE")
-print("=" * 60)
-
 def test_caa_returns_triple():
     result = choose_accent_archetype(16)
     assert len(result) == 3, f"Expected (archetype, weights, capacity), got {result}"
     archetype, weights, capacity = result
     assert archetype in VALID_ARCHETYPES
-
-run_test("returns (archetype, weights, capacity)", test_caa_returns_triple)
 
 def test_caa_weights_length_matches_slots():
     for section_slots in [16, 32, 64, 128]:
@@ -199,8 +154,6 @@ def test_caa_weights_length_matches_slots():
             _, weights, _ = choose_accent_archetype(section_slots)
             assert len(weights) == section_slots, \
                 f"section_slots={section_slots}: got {len(weights)} weights"
-
-run_test("weight vector length always equals section_slots", test_caa_weights_length_matches_slots)
 
 def test_caa_capacity_bounds():
     for _ in range(1000):
@@ -211,14 +164,10 @@ def test_caa_capacity_bounds():
         assert 1 <= capacity <= section_slots, \
             f"capacity {capacity} out of [1, {section_slots}]"
 
-run_test("capacity equals positive-weight count and is within [1, slots]", test_caa_capacity_bounds)
-
 def test_caa_weights_nonnegative():
     for _ in range(1000):
         _, weights, _ = choose_accent_archetype(random.choice([16, 32, 64]))
         assert all(w >= 0 for w in weights), "weights must be non-negative"
-
-run_test("all weights are non-negative", test_caa_weights_nonnegative)
 
 def test_caa_even_and_random_full_capacity():
     # Force the two full-capacity archetypes and check their capacity.
@@ -232,25 +181,12 @@ def test_caa_even_and_random_full_capacity():
                     f"'{archetype_target}' should offer full capacity, got {capacity}"
         assert found, f"'{archetype_target}' never chosen in 2000 draws"
 
-run_test("'even' and 'random' offer full section capacity", test_caa_even_and_random_full_capacity)
-
 def test_caa_alternating_half_capacity():
     for _ in range(2000):
         archetype, weights, capacity = choose_accent_archetype(16)
         if archetype == "alternating":
             assert capacity == 8, \
                 f"'alternating' over 16 slots should have capacity 8, got {capacity}"
-
-run_test("'alternating' leaves half the slots empty", test_caa_alternating_half_capacity)
-
-
-# ============================================================
-# APPLY_ACCENT_ARCHETYPE TESTS
-# ============================================================
-
-print("\n" + "=" * 60)
-print("APPLY_ACCENT_ARCHETYPE")
-print("=" * 60)
 
 # Mirrors real caller usage: choose the shape, clamp accent count to the
 # layout's capacity, then place. Returns the binary pattern and count.
@@ -266,15 +202,11 @@ def test_aaa_output_length():
             assert len(pattern) == section_slots, \
                 f"section_slots={section_slots}: got {len(pattern)}"
 
-run_test("output length always equals section_slots", test_aaa_output_length)
-
 def test_aaa_binary_output():
     for _ in range(1000):
         section_slots = random.choice([16, 32, 64])
         pattern, _ = placed_accents(section_slots, random.randint(1, 8))
         assert all(v in (0, 1) for v in pattern), "pattern must be binary"
-
-run_test("all entries are 0 or 1", test_aaa_binary_output)
 
 def test_aaa_exact_accent_count():
     for _ in range(1000):
@@ -282,8 +214,6 @@ def test_aaa_exact_accent_count():
         pattern, n = placed_accents(section_slots, random.randint(1, 12))
         assert sum(pattern) == n, \
             f"Expected {n} accents placed, got {sum(pattern)}"
-
-run_test("number of lit slots equals the (clamped) accent count", test_aaa_exact_accent_count)
 
 def test_aaa_clamp_never_crashes():
     # The chord-engine crash analog: short section + high density + a
@@ -295,15 +225,11 @@ def test_aaa_clamp_never_crashes():
         assert sum(pattern) == n, "Clamp failed: placed a different count than asked"
         assert sum(pattern) >= 1, "Should always place at least one accent"
 
-run_test("density exceeding capacity clamps instead of crashing", test_aaa_clamp_never_crashes)
-
 def test_aaa_density_one_single_accent():
     for _ in range(500):
         archetype, weights, capacity = choose_accent_archetype(16)
         pattern = apply_accent_archetype(16, 1, archetype, weights)
         assert sum(pattern) == 1, f"density=1 should place exactly one accent, got {sum(pattern)}"
-
-run_test("density=1 places exactly one accent", test_aaa_density_one_single_accent)
 
 def test_aaa_even_hits_downbeat_and_spaces_evenly():
     # 'even' places the first accent on slot 0 and spreads regularly.
@@ -317,17 +243,6 @@ def test_aaa_even_hits_downbeat_and_spaces_evenly():
         assert positions == expected, \
             f"'even' spacing off for n={n}: {positions} != {expected}"
 
-run_test("'even' hits the downbeat and spaces accents regularly", test_aaa_even_hits_downbeat_and_spaces_evenly)
-
-
-# ============================================================
-# ACCENT_PATTERN_CALCULATOR TESTS
-# ============================================================
-
-print("\n" + "=" * 60)
-print("ACCENT_PATTERN_CALCULATOR")
-print("=" * 60)
-
 def test_apc_correct_total_length():
     for measures in PROG_LENGTHS:
         for pattern in (["A"], ["A", "B"]):
@@ -337,8 +252,6 @@ def test_apc_correct_total_length():
             assert len(result) == measures * SLOTS_PER_MEASURE, \
                 f"measures={measures}, pattern={pattern}: got {len(result)}"
 
-run_test("output length equals measures * 16", test_apc_correct_total_length)
-
 def test_apc_binary_and_nonempty():
     for _ in range(500):
         measures = random.choice(PROG_LENGTHS)
@@ -346,8 +259,6 @@ def test_apc_binary_and_nonempty():
         result = accent_pattern_calculator(measures, random.random(), pattern)
         assert all(v in (0, 1) for v in result), "matrix must be binary"
         assert sum(result) >= 1, "matrix must contain at least one accent"
-
-run_test("matrix is binary and has at least one accent", test_apc_binary_and_nonempty)
 
 def test_apc_repeated_sections_identical():
     for _ in range(300):
@@ -361,8 +272,6 @@ def test_apc_repeated_sections_identical():
         assert sec_a0 == sec_a1, "Section A[0] and A[1] differ"
         assert sec_a0 == sec_a3, "Section A[0] and A[3] differ"
 
-run_test("repeated sections (AABA) are byte-for-byte identical", test_apc_repeated_sections_identical)
-
 def test_apc_different_sections_can_differ():
     differences = 0
     for _ in range(300):
@@ -372,22 +281,9 @@ def test_apc_different_sections_can_differ():
             differences += 1
     assert differences > 0, "A and B accent sections were always identical"
 
-run_test("different section letters can produce different accents", test_apc_different_sections_can_differ)
-
-
-# ============================================================
-# CREATE_ACCENT_PATTERN TESTS
-# ============================================================
-
-print("\n" + "=" * 60)
-print("CREATE_ACCENT_PATTERN")
-print("=" * 60)
-
 def test_cap_returns_list():
     result = create_accent_pattern(4, 0.5, a_pattern(4))
     assert isinstance(result, list), f"Expected list, got {type(result)}"
-
-run_test("returns a list", test_cap_returns_list)
 
 def test_cap_length_is_measures_times_16():
     for _ in range(300):
@@ -396,15 +292,11 @@ def test_cap_length_is_measures_times_16():
         assert len(result) == measures * SLOTS_PER_MEASURE, \
             f"measures={measures}: got {len(result)}"
 
-run_test("length always equals measures * 16", test_cap_length_is_measures_times_16)
-
 def test_cap_length_in_valid_set():
     for _ in range(300):
         measures = random.choice(PROG_LENGTHS)
         result = create_accent_pattern(measures, random.random(), a_pattern(measures))
         assert len(result) in {16, 32, 64, 128}, f"Length {len(result)} unexpected"
-
-run_test("length is 16, 32, 64, or 128", test_cap_length_in_valid_set)
 
 def test_cap_binary():
     for _ in range(300):
@@ -412,15 +304,11 @@ def test_cap_binary():
         result = create_accent_pattern(measures, random.random(), a_pattern(measures))
         assert all(v in (0, 1) for v in result), "matrix must be binary"
 
-run_test("all entries are 0 or 1", test_cap_binary)
-
 def test_cap_at_least_one_accent():
     for _ in range(500):
         measures = random.choice(PROG_LENGTHS)
         result = create_accent_pattern(measures, random.random(), a_pattern(measures))
         assert sum(result) >= 1, "Accent pattern has no accents at all"
-
-run_test("always contains at least one accent", test_cap_at_least_one_accent)
 
 def test_cap_accent_count_grows_with_arousal():
     low = sum(sum(create_accent_pattern(4, 0.2, a_pattern(4))) for _ in range(2000))
@@ -428,15 +316,11 @@ def test_cap_accent_count_grows_with_arousal():
     print(f"    total accents (4 measures): arousal=0.2 → {low}, arousal=0.9 → {high}")
     assert high > low, f"Accents should grow with arousal: low={low}, high={high}"
 
-run_test("accent count grows with arousal", test_cap_accent_count_grows_with_arousal)
-
 def test_cap_accent_count_grows_with_measures():
     short = sum(sum(create_accent_pattern(2, 0.7, a_pattern(2))) for _ in range(2000))
     long = sum(sum(create_accent_pattern(8, 0.7, a_pattern(8))) for _ in range(2000))
     print(f"    total accents (arousal=0.7): 2 measures → {short}, 8 measures → {long}")
     assert long > short, f"Accents should grow with length: short={short}, long={long}"
-
-run_test("accent count grows with progression length", test_cap_accent_count_grows_with_measures)
 
 def test_cap_boundary_corners():
     for measures in PROG_LENGTHS:
@@ -445,8 +329,6 @@ def test_cap_boundary_corners():
             assert len(result) == measures * SLOTS_PER_MEASURE
             assert all(v in (0, 1) for v in result)
             assert sum(result) >= 1
-
-run_test("arousal boundary corners don't crash and stay valid", test_cap_boundary_corners)
 
 def test_cap_sample_outputs():
     print("    Sample accent matrices (rows = measures):")
@@ -458,24 +340,11 @@ def test_cap_sample_outputs():
         for r in rows:
             print(f"        {r}")
 
-run_test("sample accent matrices (visual)", test_cap_sample_outputs)
-
-
-# ============================================================
-# EDGE CASE GAUNTLET
-# ============================================================
-
-print("\n" + "=" * 60)
-print("EDGE CASE GAUNTLET")
-print("=" * 60)
-
 def test_edge_arousal_zero_still_has_accent():
     for measures in PROG_LENGTHS:
         for _ in range(100):
             result = create_accent_pattern(measures, 0.0, a_pattern(measures))
             assert sum(result) >= 1, f"arousal=0, measures={measures}: no accent placed"
-
-run_test("arousal=0 still places at least one accent per section", test_edge_arousal_zero_still_has_accent)
 
 def test_edge_max_arousal_max_length():
     for _ in range(100):
@@ -483,16 +352,12 @@ def test_edge_max_arousal_max_length():
         assert len(result) == 128
         assert all(v in (0, 1) for v in result)
 
-run_test("8 measures at arousal=1.0 doesn't crash", test_edge_max_arousal_max_length)
-
 def test_edge_single_measure_max_arousal():
     for _ in range(200):
         result = create_accent_pattern(1, 1.0, a_pattern(1))
         assert len(result) == 16
         # 1 measure at arousal 1.0 -> density 8, capacity-dependent
         assert 1 <= sum(result) <= 16
-
-run_test("single measure at arousal=1.0 stays within slot bounds", test_edge_single_measure_max_arousal)
 
 def test_edge_full_grid_no_crash():
     count = 0
@@ -507,17 +372,6 @@ def test_edge_full_grid_no_crash():
                 count += 1
     print(f"    swept {count} (measures × arousal × trials) cases with no crash")
 
-run_test("full measures × arousal grid produces valid output", test_edge_full_grid_no_crash)
-
-
-# ============================================================
-# CROSS-FUNCTION INTEGRATION
-# ============================================================
-
-print("\n" + "=" * 60)
-print("CROSS-FUNCTION INTEGRATION")
-print("=" * 60)
-
 def test_int_pattern_tiles_evenly():
     for _ in range(500):
         measures = random.choice(PROG_LENGTHS)
@@ -526,8 +380,6 @@ def test_int_pattern_tiles_evenly():
         total_slots = measures * SLOTS_PER_MEASURE
         assert total_slots % len(pattern) == 0, \
             f"pattern length {len(pattern)} doesn't tile {total_slots} slots evenly"
-
-run_test("repetition pattern always tiles the slot grid evenly", test_int_pattern_tiles_evenly)
 
 def test_int_density_within_section_capacity():
     # Each unique section's placed accent count must never exceed its slots.
@@ -542,8 +394,6 @@ def test_int_density_within_section_capacity():
         assert sum(first_section) <= section_slots, "section over-filled"
         assert sum(first_section) >= 1, "section under-filled"
 
-run_test("per-section accent count stays within section capacity", test_int_density_within_section_capacity)
-
 def test_int_full_pipeline_many_runs():
     for _ in range(500):
         measures = random.choice(PROG_LENGTHS)
@@ -553,20 +403,175 @@ def test_int_full_pipeline_many_runs():
         assert all(v in (0, 1) for v in result)
         assert sum(result) >= 1
 
-run_test("full pipeline: 500 random runs all produce valid output", test_int_full_pipeline_many_runs)
+
+def main():
+    # ============================================================
+    # ACCENT_DENSITY_CALCULATOR TESTS
+    # ============================================================
+
+    print("\n" + "=" * 60)
+    print("ACCENT_DENSITY_CALCULATOR")
+    print("=" * 60)
+
+    run_test("returns integer", test_adc_returns_int)
+
+    run_test("never returns less than 1", test_adc_minimum_is_one)
+
+    run_test("arousal=0 always gives minimum density of 1", test_adc_arousal_zero_gives_one)
+
+    run_test("matches p*b*x for known inputs", test_adc_known_values)
+
+    run_test("monotonically increases with arousal", test_adc_monotonic_in_arousal)
+
+    run_test("monotonically increases with section measures", test_adc_monotonic_in_measures)
 
 
-# ============================================================
-# SUMMARY
-# ============================================================
+    # ============================================================
+    # ACCENT_ARCHETYPE_CALCULATOR TESTS
+    # ============================================================
 
-print("\n" + "=" * 60)
-print(f"RESULTS: {passed} passed, {failed} failed out of {passed + failed} tests")
-print("=" * 60)
+    print("\n" + "=" * 60)
+    print("ACCENT_ARCHETYPE_CALCULATOR")
+    print("=" * 60)
 
-if errors:
-    print("\nFAILURES:")
-    for name, msg in errors:
-        print(f"  ✗ {name}: {msg}")
-else:
-    print("\nAll tests passed.")
+    run_test("always returns a valid archetype", test_aac_valid_outputs)
+
+    run_test("roughly uniform distribution over 6 archetypes", test_aac_roughly_uniform)
+
+
+    # ============================================================
+    # CHOOSE_ACCENT_ARCHETYPE TESTS
+    # ============================================================
+
+    print("\n" + "=" * 60)
+    print("CHOOSE_ACCENT_ARCHETYPE")
+    print("=" * 60)
+
+    run_test("returns (archetype, weights, capacity)", test_caa_returns_triple)
+
+    run_test("weight vector length always equals section_slots", test_caa_weights_length_matches_slots)
+
+    run_test("capacity equals positive-weight count and is within [1, slots]", test_caa_capacity_bounds)
+
+    run_test("all weights are non-negative", test_caa_weights_nonnegative)
+
+    run_test("'even' and 'random' offer full section capacity", test_caa_even_and_random_full_capacity)
+
+    run_test("'alternating' leaves half the slots empty", test_caa_alternating_half_capacity)
+
+
+    # ============================================================
+    # APPLY_ACCENT_ARCHETYPE TESTS
+    # ============================================================
+
+    print("\n" + "=" * 60)
+    print("APPLY_ACCENT_ARCHETYPE")
+    print("=" * 60)
+
+    run_test("output length always equals section_slots", test_aaa_output_length)
+
+    run_test("all entries are 0 or 1", test_aaa_binary_output)
+
+    run_test("number of lit slots equals the (clamped) accent count", test_aaa_exact_accent_count)
+
+    run_test("density exceeding capacity clamps instead of crashing", test_aaa_clamp_never_crashes)
+
+    run_test("density=1 places exactly one accent", test_aaa_density_one_single_accent)
+
+    run_test("'even' hits the downbeat and spaces accents regularly", test_aaa_even_hits_downbeat_and_spaces_evenly)
+
+
+    # ============================================================
+    # ACCENT_PATTERN_CALCULATOR TESTS
+    # ============================================================
+
+    print("\n" + "=" * 60)
+    print("ACCENT_PATTERN_CALCULATOR")
+    print("=" * 60)
+
+    run_test("output length equals measures * 16", test_apc_correct_total_length)
+
+    run_test("matrix is binary and has at least one accent", test_apc_binary_and_nonempty)
+
+    run_test("repeated sections (AABA) are byte-for-byte identical", test_apc_repeated_sections_identical)
+
+    run_test("different section letters can produce different accents", test_apc_different_sections_can_differ)
+
+
+    # ============================================================
+    # CREATE_ACCENT_PATTERN TESTS
+    # ============================================================
+
+    print("\n" + "=" * 60)
+    print("CREATE_ACCENT_PATTERN")
+    print("=" * 60)
+
+    run_test("returns a list", test_cap_returns_list)
+
+    run_test("length always equals measures * 16", test_cap_length_is_measures_times_16)
+
+    run_test("length is 16, 32, 64, or 128", test_cap_length_in_valid_set)
+
+    run_test("all entries are 0 or 1", test_cap_binary)
+
+    run_test("always contains at least one accent", test_cap_at_least_one_accent)
+
+    run_test("accent count grows with arousal", test_cap_accent_count_grows_with_arousal)
+
+    run_test("accent count grows with progression length", test_cap_accent_count_grows_with_measures)
+
+    run_test("arousal boundary corners don't crash and stay valid", test_cap_boundary_corners)
+
+    run_test("sample accent matrices (visual)", test_cap_sample_outputs)
+
+
+    # ============================================================
+    # EDGE CASE GAUNTLET
+    # ============================================================
+
+    print("\n" + "=" * 60)
+    print("EDGE CASE GAUNTLET")
+    print("=" * 60)
+
+    run_test("arousal=0 still places at least one accent per section", test_edge_arousal_zero_still_has_accent)
+
+    run_test("8 measures at arousal=1.0 doesn't crash", test_edge_max_arousal_max_length)
+
+    run_test("single measure at arousal=1.0 stays within slot bounds", test_edge_single_measure_max_arousal)
+
+    run_test("full measures × arousal grid produces valid output", test_edge_full_grid_no_crash)
+
+
+    # ============================================================
+    # CROSS-FUNCTION INTEGRATION
+    # ============================================================
+
+    print("\n" + "=" * 60)
+    print("CROSS-FUNCTION INTEGRATION")
+    print("=" * 60)
+
+    run_test("repetition pattern always tiles the slot grid evenly", test_int_pattern_tiles_evenly)
+
+    run_test("per-section accent count stays within section capacity", test_int_density_within_section_capacity)
+
+    run_test("full pipeline: 500 random runs all produce valid output", test_int_full_pipeline_many_runs)
+
+
+    # ============================================================
+    # SUMMARY
+    # ============================================================
+
+    print("\n" + "=" * 60)
+    print(f"RESULTS: {passed} passed, {failed} failed out of {passed + failed} tests")
+    print("=" * 60)
+
+    if errors:
+        print("\nFAILURES:")
+        for name, msg in errors:
+            print(f"  ✗ {name}: {msg}")
+    else:
+        print("\nAll tests passed.")
+
+
+if __name__ == "__main__":
+    main()

@@ -27,7 +27,13 @@ emote = EMOTE()
 
 test_inputs = [-1.0, -0.5, 0.0, 0.5, 1.0]
 
-for input_val in test_inputs:
-    result = emote.transform(input_val)
-    bpm = calculate_global_parameters(result['valence'], MIN_BPM, MAX_BPM)
-    print(f"Input: {input_val:+.1f} → V: {result['valence']:+.2f}, A: {result['arousal']:.2f} → BPM: {bpm:.1f}")
+
+def main():
+    for input_val in test_inputs:
+        result = emote.transform(input_val)
+        bpm = calculate_global_parameters(result['valence'], MIN_BPM, MAX_BPM)
+        print(f"Input: {input_val:+.1f} → V: {result['valence']:+.2f}, A: {result['arousal']:.2f} → BPM: {bpm:.1f}")
+
+
+if __name__ == "__main__":
+    main()

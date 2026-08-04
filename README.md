@@ -38,9 +38,10 @@ symbolic half is real and tested. The audio half is not written yet.
 ## Quick start
 
 Requires **Python 3** and nothing else. The current system has **zero
-third-party dependencies** — only `math`, `random`, `collections`, and `tkinter`
-from the standard library. (The heavy audio stack — numpy, scipy, pyaudio,
-librosa — belongs to the 2025 prototype in `legacy/`, not to this.)
+third-party dependencies to run** — only `math`, `random`, `collections`, and
+`tkinter` from the standard library. (The heavy audio stack — numpy, scipy,
+pyaudio, librosa — belongs to the 2025 prototype in `legacy/`, not to this.
+`pytest` is optional and only for the tests, which also run without it.)
 
 ```bash
 python3 -m handband
@@ -247,7 +248,17 @@ off. Percussion is one-shot, so its alphabet is only `H` and `R`.
 
 ## Tests
 
-297 tests across seven suites. All passing.
+297 tests across seven suites. All passing. They run two ways.
+
+Under pytest, if you have it — the only third-party package this repo uses, and
+only for this:
+
+```bash
+pytest handband/tests
+```
+
+Or standalone, with no dependencies at all, which prints each suite's own
+section banners and pass/fail summary:
 
 ```bash
 for f in handband/tests/test_*.py; do
@@ -265,8 +276,10 @@ done
 | `tests/test_instrument.py` | 29 |
 | `tests/test_global_parameters.py` | smoke test (prints a table) |
 
-The suites are hand-rolled — no pytest, no unittest. Each file runs its checks
-top to bottom and prints a pass/fail summary. They assert **invariants** rather
+The suites are hand-rolled. Each file defines its checks as plain `test_*`
+functions and drives them itself, from a `main()` behind a `__main__` guard —
+so importing a suite runs nothing, which is what lets pytest collect the same
+297 functions without the file executing itself first. They assert **invariants** rather
 than fixed expected values, which suits a system whose output is random by
 design: that a result rises monotonically with arousal, that no option is ever
 unreachable at any emotional extreme, that a count never exceeds its capacity,
