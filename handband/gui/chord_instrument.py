@@ -1,7 +1,7 @@
 """
 Chord Instrument GUI
 
-A sibling of MI_Chord_Progression_GUI, in the same visual style, but it
+A sibling of gui/chord_progression.py, in the same visual style, but it
 renders the CHORD INSTRUMENT's performance chart rather than the raw
 progression. Where the progression view shows which chord is *available*
 at each slot, this shows what the player actually *does*:
@@ -14,7 +14,7 @@ So you can see the instrument's rhythm — its density, its syncopation,
 and its staccato/legato articulation — laid over the same 16th-note grid
 as the progression. Driven by the same live valence/arousal.
 
-Run directly:  python3 MI_Chord_Instrument_GUI.py
+Run directly:  python3 -m handband.gui.chord_instrument
 """
 
 import tkinter as tk

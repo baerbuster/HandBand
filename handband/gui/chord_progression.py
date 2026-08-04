@@ -26,7 +26,7 @@ grid tick means the hit rushes (on top of the beat), pushed right means
 it lays back (behind the beat), and the further from center the larger
 the offset. All are driven off the same live valence/arousal.
 
-Run directly:  python3 MI_Chord_Progression_GUI.py
+Run directly:  python3 -m handband.gui.chord_progression
 """
 
 import tkinter as tk

@@ -105,14 +105,14 @@ job only: pitch.
 
 Every element sounds the **tonic of the current key**, at its own octave,
 using the same formula the chord and bass instruments already use
-(`MI_Chord_Instrument.py:214`, `MI_Bass_Instrument.py:703`):
+(`mi/chord_instrument.py:214`, `mi/bass_instrument.py:703`):
 
 ```python
 fundamental = 12 * (ELEMENT_OCTAVE + 1) + CURRENT_KEY
 ```
 
 Key changes come free — all three read `CURRENT_KEY` from
-`MI_Global_Parameters`, so retuning the key retunes the whole kit.
+`mi/global_parameters.py`, so retuning the key retunes the whole kit.
 
 ### Element octaves (configurable constants, top of module)
 
@@ -183,7 +183,7 @@ chord-change retriggers from `realize_bass_notes`, which follow harmony
 rather than the cell. Folding those would smear harmonic events into the
 drum cell.
 
-This keeps `MI_Drum_Instrument` from importing the bass at all. The
+This keeps `mi/drum_instrument.py` from importing the bass at all. The
 element's coupling table names a reference; the caller decides what that
 name points at. The only bass import is `bass_cell_measures`.
 
@@ -216,7 +216,7 @@ than one it hits in one.
 **Deliberate duplication.** `reference_mask` is *not* a generalization of
 `chord_hit_mask:342`. That one is boolean; refactoring it to fractional
 would change bass behavior and put done-item 6 in play for a change that
-has nothing to do with drums. `MI_Bass_Instrument.py` stays untouched. The
+has nothing to do with drums. `mi/bass_instrument.py` stays untouched. The
 duplication is intentional — recorded here so a later reader doesn't merge
 them.
 
@@ -271,7 +271,7 @@ on the divide.
 tiling count.**
 
 This also matches what both existing instruments already do — the same
-line appears in `MI_Chord_Instrument.py:134` and `MI_Bass_Instrument.py:388`:
+line appears in `mi/chord_instrument.py:134` and `mi/bass_instrument.py:388`:
 
 ```python
 n = min(instrument.density_per_measure(arousal) * cell_measures, cell_slots)
@@ -347,7 +347,7 @@ The four methods that carry an element's personality — `accent_volume`,
 `groove_offsets`, `density_per_measure`, `syncopation_weights` — are
 already written and tested.
 
-The dead members cost nothing. `MI_Instrument.py:11` states the class is
+The dead members cost nothing. `mi/instrument.py:11` states the class is
 *"deliberately NO abstract methods, so nothing is forced on any particular
 instrument (drums may later want funky per-piece placement, etc.)"*, and
 line 13 names drums as an intended instance. `voicing_index` self-neuters
@@ -382,7 +382,7 @@ document's three parallel element chains.
 - Per-element scaling comes entirely from `max_density_rate` — there is no
   per-element density formula.
 
-**The floor already exists.** `MI_Instrument.py:140` is
+**The floor already exists.** `mi/instrument.py:140` is
 `max(1, round(arousal * self.max_density_rate))`, documented at `:138` as
 *"Floored at 1 so every measure plays at least once."* `DrumElement`
 inherits it. No new machinery.
@@ -400,8 +400,8 @@ inherits it. No new machinery.
   accept meanwhile is that no element can drop out — at arousal 0 the kick,
   snare and hat all sound every measure.
 - Drums do **not** get the silent-measure repair that chord
-  (`MI_Chord_Instrument.py:184-188`) and bass
-  (`MI_Bass_Instrument.py:445-448`) apply. A silent measure in one kit
+  (`mi/chord_instrument.py:184-188`) and bass
+  (`mi/bass_instrument.py:445-448`) apply. A silent measure in one kit
   element is ordinary drumming; a silent measure across the whole band is a
   hole in the arrangement, and that is the case the repair exists for.
 
@@ -460,7 +460,7 @@ five. It still reads as even placement, coupling still bites, nothing is
 bypassed. **Departure — record under done-item 7.**
 
 **Capacity.** `capacity` is already written down, at
-`MI_Accent_Pattern_Engine.py:86` — `sum(1 for w in weights if w > 0)` —
+`mi/accent_pattern_engine.py:86` — `sum(1 for w in weights if w > 0)` —
 with the rule spelled out in the docstring at `:60-64` and tests asserting
 it (`test_caa_alternating_half_capacity`, `test_cga_alternating_half_capacity`:
 capacity 8 over 16 slots). Point at that rather than inventing a new one.
@@ -710,7 +710,7 @@ Only what does not generalize.
 
 ---
 
-## 7. GUI — drum tablature lane in `MI_Score_GUI.py`
+## 7. GUI — drum tablature lane in `gui/score.py`
 
 An addition to the existing Band Score window, not a new window. The whole
 band reads off one aligned grid: chords, bass, drums.
@@ -785,8 +785,8 @@ bundle.
 
 A test suite must exist and must pass before this work counts as done.
 
-**File:** `MI_Drum_Instrument_Test.py`, in the same style as the existing
-suites (`MI_Instrument_Test.py`, `MI_Accent_Pattern_Engine_Test.py`) —
+**File:** `tests/test_drum_instrument.py`, in the same style as the existing
+suites (`tests/test_instrument.py`, `tests/test_accent_pattern_engine.py`) —
 plain `run_test(name, fn)` harness, module-level asserts, a
 `RESULTS: N passed, M failed` summary at the bottom. No pytest.
 
@@ -820,7 +820,7 @@ Required coverage:
 **Capacity clamp**
 - Density is clamped to `min(n, capacity)` before placement, at every
   archetype and at arousal 1.0. `capacity` is the existing mechanism
-  (`MI_Accent_Pattern_Engine.py:86`), not a new one. This is the specific
+  (`mi/accent_pattern_engine.py:86`), not a new one. This is the specific
   bug class that crashed the chord progression engine — cover it directly.
 
 **Coupling**
@@ -879,7 +879,7 @@ Required coverage:
 
 All of the following, in order. Nothing here is optional.
 
-**1. `MI_Drum_Instrument.py` exists** and contains:
+**1. `mi/drum_instrument.py` exists** and contains:
 - `DrumElement(Instrument)`
 - `DrumsInstrument` (thin container)
 - the six generic engines of section 4
@@ -901,11 +901,11 @@ V/A change as everything else.
 **4. The GUI of section 7 renders**, drum lane aligned to the chord and
 bass lanes on the same grid, live off the slider, no crash at any input.
 
-**5. `MI_Drum_Instrument_Test.py` exists and reports 0 failures.** Run it
+**5. `tests/test_drum_instrument.py` exists and reports 0 failures.** Run it
 and paste the summary line.
 
-**6. The three existing suites still pass** — `MI_Instrument_Test.py`,
-`MI_Chord_Progression_Engine_Test.py`, `MI_Accent_Pattern_Engine_Test.py` —
+**6. The three existing suites still pass** — `tests/test_instrument.py`,
+`tests/test_chord_progression_engine.py`, `tests/test_accent_pattern_engine.py` —
 since `DrumElement` subclasses `Instrument` and the GUI is shared.
 
 **7. Every departure taken from this spec is written down** in the module
@@ -919,7 +919,7 @@ The list is already known, so the docstring starts with these seven:
    placement-time bypass — a bypass would discard three of the four weight
    factors (section 4).
 2. **`reference_mask` duplicates `chord_hit_mask`'s intent deliberately** —
-   fractional vs. boolean; `MI_Bass_Instrument.py` left untouched
+   fractional vs. boolean; `mi/bass_instrument.py` left untouched
    (section 1.5).
 3. **`DRUM_COUPLING_BOOST` separate from the bass's `COUPLING_BOOST`** —
    continuous mask vs. boolean; expected to diverge under tuning

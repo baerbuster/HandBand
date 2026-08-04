@@ -1,13 +1,13 @@
 """
 Bass Contour GUI
 
-A sibling of MI_Chord_Instrument_GUI, in the same visual style and driven
+A sibling of gui/chord_instrument.py, in the same visual style and driven
 the same way: it renders the shared SongSource, so it shows the SAME song
 as every other view, off the one live Input slider (via EMOTE). No sliders
 of its own — the single system input drives valence/arousal like everywhere
 else.
 
-It plots the bass CONTOUR (MI_Bass_Instrument.bass_contour): the curve the
+It plots the bass CONTOUR (mi/bass_instrument.py, bass_contour): the curve the
 bass line rides, in SCALE DEGREES, one point per 16th-note slot across ONE
 CELL. The cell repeats across the song, re-anchored to each chord, so what's
 drawn here is the riff shape.
@@ -23,7 +23,7 @@ The vertical axis counts scale steps, not semitones: degree 1 is the tonic,
 Horizontal lines mark the octave above/below and the tonic (degree 1);
 vertical lines mark the measures.
 
-Run directly:  python3 MI_Bass_Contour_GUI.py
+Run directly:  python3 -m handband.gui.bass_contour
 """
 
 import tkinter as tk

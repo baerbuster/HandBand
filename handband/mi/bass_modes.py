@@ -146,7 +146,7 @@ if __name__ == "__main__":
     assert degree_to_semitone(SCALES["dorian"], 3) == 3    # flat 3rd
     assert degree_to_semitone(SCALES["ionian"], 8) == 12   # octave
     assert degree_to_semitone(SCALES["ionian"], -1) == -12  # tonic, octave down
-    print("MI_Bass_Modes: all sanity checks passed")
+    print("bass_modes: all sanity checks passed")
 
     for sym in ("I", "ii", "iii", "IV", "V7", "vi9", "vii°ø7"):
         mode = mode_for_chord(sym)

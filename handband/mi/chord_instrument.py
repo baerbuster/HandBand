@@ -1,7 +1,7 @@
 """
 Chord Instrument
 
-The first real instance of the Instrument class (MI_Instrument). It
+The first real instance of the Instrument class (mi/instrument.py). It
 takes the band-wide data — the chord progression, plus valence/arousal
 (and later the accent map and groove vector) — and produces THIS
 player's performance chart: a per-slot rhythm of when to strike the

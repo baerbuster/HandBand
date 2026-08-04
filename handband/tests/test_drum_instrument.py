@@ -1,7 +1,7 @@
 """
 Drum Instrument Test
 
-Test suite for MI_Drum_Instrument, in the same style as the other
+Test suite for mi/drum_instrument.py, in the same style as the other
 suites. Covers the spec's required list:
 
 - output contract: package shape, slot shape, no "C", fundamental,

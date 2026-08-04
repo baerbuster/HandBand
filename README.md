@@ -21,13 +21,13 @@ still specification.
 |---|---|---|---|
 | 1 | **Input** | **Built** — GUI slider, −1 … +1 | `input.py` |
 | 2 | **EMOTE** | **Built (first-pass)** — valence + arousal only | `emote.py` |
-| 3 | **Musical Intelligence** | **Built** — global params + chord, bass, drum instruments | `MI_*.py` (20 files) |
+| 3 | **Musical Intelligence** | **Built** — global params + chord, bass, drum instruments | `mi/` (12 modules) |
 | 4 | **Sonic Intelligence** | Not started | — |
 | 5 | **Sequencer** | Not started | — |
 | 6 | **Synthesizer** | Not started (prototype exists in `legacy/`) | — |
 | 7 | **Mix/Master** | Not started | — |
 | 8 | **Output** | Not started | — |
-| 9 | **Main Orchestrator** | **Partial** — wires Input → EMOTE → views | `HandBandMain.py` |
+| 9 | **Main Orchestrator** | **Partial** — wires Input → EMOTE → views | `main.py` |
 
 So the system currently composes a complete song — harmony, bassline, drum kit,
 accent map, groove feel — and **renders it as notation rather than audio.** The
@@ -43,33 +43,32 @@ from the standard library. (The heavy audio stack — numpy, scipy, pyaudio,
 librosa — belongs to the 2025 prototype in `legacy/`, not to this.)
 
 ```bash
-cd "HandBand 4.0"
-python3 HandBandMain.py
+python3 -m handband
 ```
 
 That opens the main window: one slider, six checkboxes. The slider is the system
 input. Each checkbox opens a view onto the same generated song.
 
-Modules import each other by bare name, so **run from inside `HandBand 4.0/`**.
-`tkinter` ships with python.org builds; some Linux distributions package it
-separately as `python3-tk`. Developed and run on macOS.
+Run it from the repo root — `handband` is a package, so everything is reached
+with `python3 -m`. `tkinter` ships with python.org builds; some Linux
+distributions package it separately as `python3-tk`. Developed and run on macOS.
 
 Eight modules run standalone and print a demonstration of themselves, mostly as
 ASCII grids sampled at several points across the emotional range:
 
 ```bash
-python3 MI_Groove_Delay_Engine.py      # groove vectors across the emotional range
-python3 MI_Bass_Instrument.py          # contour plots, rhythm cells, degree cells
-python3 MI_Chord_Library.py            # chord symbols to intervals
-python3 MI_Chord_Instrument.py         # performance charts at three emotional states
-python3 MI_Accent_Pattern_Engine.py    # accent grids per emotional state
-python3 MI_Drum_Instrument.py          # the kit against the bass it couples to
-python3 MI_Instrument.py               # two contrasting instruments on the same data
-python3 MI_Bass_Modes.py               # chord to church mode, degree to semitone
+python3 -m handband.mi.groove_delay_engine     # groove vectors across the emotional range
+python3 -m handband.mi.bass_instrument         # contour plots, rhythm cells, degree cells
+python3 -m handband.mi.chord_library           # chord symbols to intervals
+python3 -m handband.mi.chord_instrument        # performance charts at three emotional states
+python3 -m handband.mi.accent_pattern_engine   # accent grids per emotional state
+python3 -m handband.mi.drum_instrument         # the kit against the bass it couples to
+python3 -m handband.mi.instrument              # two contrasting instruments on the same data
+python3 -m handband.mi.bass_modes              # chord to church mode, degree to semitone
 ```
 
-`emote.py`, `MI_Chord_Progression_Engine.py`, `MI_Global_Parameters.py`,
-`MI_Pattern_Primitives.py`, and `MI_Song_Source.py` have no standalone demo.
+`emote.py`, `mi/chord_progression_engine.py`, `mi/global_parameters.py`,
+`mi/pattern_primitives.py`, and `mi/song_source.py` have no standalone demo.
 
 ### The views
 
@@ -122,23 +121,25 @@ prototype unmaintainable; keeping them apart is what this architecture is for.
 ## Repo layout
 
 ```
-HandBand 4.0/            the current system
-  HandBandMain.py          entry point — wires everything, owns the windows
+handband/                the current system, a Python package
+  __main__.py              so `python3 -m handband` runs the app
+  main.py                  entry point — wires everything, owns the windows
   input.py                 module 1: the slider
   emote.py                 module 2: input -> valence, arousal
-  MI_Global_Parameters.py  tempo + key
-  MI_Pattern_Primitives.py the shared toolbox every engine composes from
-  MI_Chord_*.py            harmony: progression engine, chord library, instrument
-  MI_Bass_*.py             bass: instrument, modal mapping
-  MI_Drum_Instrument.py    the kit: kick, snare, hat
-  MI_Accent_Pattern_Engine.py   where the emphasis lands
-  MI_Groove_Delay_Engine.py     the timing feel
-  MI_Instrument.py         the base class every instrument extends
-  MI_Song_Source.py        one shared song, so all views agree
-  MI_*_GUI.py              six tkinter views
-  MI_*_Test.py             seven test suites, 297 tests
-  MI_Drum_Instrument_Spec.md    the drum design document
+  mi/                      module 3: Musical Intelligence — WHAT to play
+    global_parameters.py     tempo + key
+    pattern_primitives.py    the shared toolbox every engine composes from
+    chord_*.py               harmony: progression engine, chord library, instrument
+    bass_*.py                bass: instrument, modal mapping
+    drum_instrument.py       the kit: kick, snare, hat
+    accent_pattern_engine.py where the emphasis lands
+    groove_delay_engine.py   the timing feel
+    instrument.py            the base class every instrument extends
+    song_source.py           one shared song, so all views agree
+  gui/                     six tkinter views
+  tests/                   seven test suites, 297 tests
 
+docs/                    design documents and screenshots
 legacy/                  the 2025 prototype, archived — see legacy/README.md
 ```
 
@@ -149,7 +150,7 @@ legacy/                  the 2025 prototype, archived — see legacy/README.md
 What actually happens when you move the slider. Every stage is at **16th-note
 resolution** — the whole system speaks in slots, 16 per measure.
 
-**1. Song form** (`MI_Chord_Progression_Engine.create_song_form`)
+**1. Song form** (`create_song_form` in `mi/chord_progression_engine.py`)
 Valence picks a length: 1, 2, 4, or 8 measures, exponentially weighted — sad is
 short, happy is long. Arousal sets chord density. Then a repetition pattern
 (`AABA`, `ABCAB`, …) emerges, built by weighing repetition against return
@@ -166,18 +167,18 @@ plagal, half, or deceptive, chosen by valence and arousal. Above arousal 0.85,
 chords take diatonic 7ths and 9ths. Finally a duration archetype (front, back,
 center, alternating, symmetrical, random) spreads them across the slots.
 
-**3. Accent map** (`MI_Accent_Pattern_Engine`)
+**3. Accent map** (`mi/accent_pattern_engine.py`)
 Which slots are emphasized. Depends only on the inherited form and arousal —
 never on the chords themselves. Purely rhythmic.
 
-**4. Groove vector** (`MI_Groove_Delay_Engine`)
+**4. Groove vector** (`mi/groove_delay_engine.py`)
 One measure of timing feel: 16 signed offsets, each a fraction of a slot.
 **Arousal is the entire intensity engine** — it sets both how many slots move
 and how far. **Valence contributes only direction:** positive lays back behind
 the beat, negative rushes on top of it. A groove doesn't evolve section to
 section — if it did, it wouldn't groove — so it's one measure, tiled.
 
-**5. The instruments** (`MI_Instrument` and its three implementations)
+**5. The instruments** (`mi/instrument.py` and its three implementations)
 Each instrument is an *instance* with its own personality, reading the same
 band-wide data and deciding how it personally responds. Five shared behaviors,
 each pairing a shared emotional signal with a per-instrument parameter:
@@ -207,7 +208,7 @@ identically:
 
 ### How each instrument thinks
 
-**Chords** (`MI_Chord_Instrument`) — two passes. Pass 1 places hits: syncopation
+**Chords** (`mi/chord_instrument.py`) — two passes. Pass 1 places hits: syncopation
 weighting times an archetype shape, drawn without replacement. Pass 2 turns
 every gap into sustain-then-rest, so the whole pass reduces to choosing one
 sustain length per hit. That length is the staccato↔legato axis, driven by
@@ -216,7 +217,7 @@ over new harmony. Pitches run voice-leading (nearest inversion to the previous
 chord), then rotation by the voicing index, then an octave clamp into the
 arousal-widened register.
 
-**Bass** (`MI_Bass_Instrument`) — four tiers.
+**Bass** (`mi/bass_instrument.py`) — four tiers.
 *Tier 1* is scalar decisions: octave drop, rhythm coupling, chord-tone
 probability, phrase endpoint.
 *Tier 2* generates a **Fourier contour** — the curve the line rides, measured in
@@ -234,7 +235,7 @@ becomes a different note depending on the harmony above it (degree 3 is natural
 over I, flat over ii). A note held across a chord change is **re-struck** on the
 new chord rather than smeared: every pitch change is a real attack.
 
-**Drums** (`MI_Drum_Instrument`) — kick, snare, hat, each a full `Instrument` in
+**Drums** (`mi/drum_instrument.py`) — kick, snare, hat, each a full `Instrument` in
 its own right inside a thin container. The cell length is inherited from the
 bass so the two repeat in lockstep. Elements **couple** to each other: the kick
 attracts toward the bass's slots (+0.8), the snare avoids the kick's (−0.8).
@@ -249,19 +250,20 @@ off. Percussion is one-shot, so its alphabet is only `H` and `R`.
 297 tests across seven suites. All passing.
 
 ```bash
-cd "HandBand 4.0"
-for f in MI_*_Test.py; do python3 "$f"; done
+for f in handband/tests/test_*.py; do
+  python3 -m "handband.tests.$(basename "$f" .py)"
+done
 ```
 
 | Suite | Tests |
 |---|---|
-| `MI_Chord_Progression_Engine_Test.py` | 94 |
-| `MI_Pattern_Primitives_Test.py` | 58 |
-| `MI_Groove_Delay_Engine_Test.py` | 44 |
-| `MI_Accent_Pattern_Engine_Test.py` | 40 |
-| `MI_Drum_Instrument_Test.py` | 32 |
-| `MI_Instrument_Test.py` | 29 |
-| `MI_Global_Parameters_Test.py` | smoke test (prints a table) |
+| `tests/test_chord_progression_engine.py` | 94 |
+| `tests/test_pattern_primitives.py` | 58 |
+| `tests/test_groove_delay_engine.py` | 44 |
+| `tests/test_accent_pattern_engine.py` | 40 |
+| `tests/test_drum_instrument.py` | 32 |
+| `tests/test_instrument.py` | 29 |
+| `tests/test_global_parameters.py` | smoke test (prints a table) |
 
 The suites are hand-rolled — no pytest, no unittest. Each file runs its checks
 top to bottom and prints a pass/fail summary. They assert **invariants** rather
@@ -390,7 +392,7 @@ navigation.
 > over time*, and Input currently provides an instantaneous scalar with no
 > history — so this expansion depends on Input gaining a time series first.
 > The music-theory primitives the opening paragraph places in EMOTE currently
-> live downstream in `MI_Pattern_Primitives.py` and `MI_Chord_Library.py`.
+> live downstream in `mi/pattern_primitives.py` and `mi/chord_library.py`.
 
 **Evolution path.** From hardcoded transformations to learned optimization.
 Initially, the mathematical relationships between input state and dimensional
@@ -437,23 +439,23 @@ modules will realize as actual sound.
 
 > **As built:**
 >
-> - **Global Layer** → `MI_Global_Parameters.py`. Tempo from valence via a
+> - **Global Layer** → `mi/global_parameters.py`. Tempo from valence via a
 >   logarithmic curve, `min_bpm × (max_bpm/min_bpm)^v`, so perceptual change
 >   feels even across the slider — 80→100 feels like 140→180. Key is fixed at C
 >   (`CURRENT_KEY = 0`) and read by everything downstream rather than assumed.
 >   Meter is fixed at 16 slots per measure. Register width is deliberately *not*
 >   global — each instrument owns its own arousal-driven register height.
-> - **Harmony Interpreter** → `MI_Chord_Progression_Engine.py`,
->   `MI_Chord_Library.py`, `MI_Chord_Instrument.py`.
-> - **Bass Interpreter** → `MI_Bass_Instrument.py`, `MI_Bass_Modes.py`.
-> - **Percussion Interpreter** → `MI_Drum_Instrument.py`,
->   `MI_Accent_Pattern_Engine.py`, `MI_Groove_Delay_Engine.py`.
+> - **Harmony Interpreter** → `mi/chord_progression_engine.py`,
+>   `mi/chord_library.py`, `mi/chord_instrument.py`.
+> - **Bass Interpreter** → `mi/bass_instrument.py`, `mi/bass_modes.py`.
+> - **Percussion Interpreter** → `mi/drum_instrument.py`,
+>   `mi/accent_pattern_engine.py`, `mi/groove_delay_engine.py`.
 > - **Melody Interpreter** → not started.
 >
 > Chord vocabulary is currently **diatonic**: I, ii, iii, IV, V, vi, vii° plus
-> their 7th and 9th extensions. `MI_Chord_Library` already parses far beyond
+> their 7th and 9th extensions. `mi/chord_library.py` already parses far beyond
 > that — borrowed roots, altered fifths, sus, and chromatic colors (♯9, ♭9, ♯11,
-> ♭13) — so the vocabulary can widen without touching the parser. `MI_Bass_Modes`
+> ♭13) — so the vocabulary can widen without touching the parser. `mi/bass_modes.py`
 > is diatonic-only by the same reasoning and grows a contextual branch when
 > non-diatonic chords arrive.
 
@@ -671,7 +673,7 @@ coherent multi-modal experiences rather than isolated stimuli.
 The top-level coordinator: it constructs each module, wires them together, and
 owns the application lifecycle.
 
-> **As built:** `HandBandMain.py` constructs Input and EMOTE, builds one shared
+> **As built:** `main.py` constructs Input and EMOTE, builds one shared
 > `SongSource` so every view renders the same generated song, and manages six
 > lazily-created child windows behind checkboxes. It does not yet coordinate a
 > real-time audio loop, because modules 4 through 8 do not exist. The design
@@ -684,9 +686,9 @@ owns the application lifecycle.
 
 There is no config file yet. Every module keeps its tunables in a named
 `Configurables` block or a set of module-level constants at the top of the file
-— `arousal_exp` in `emote.py`, `CURRENT_KEY` in `MI_Global_Parameters.py`,
-`MAX_ACCENT_DB` in `MI_Instrument.py`, the whole tunable block in
-`MI_Drum_Instrument.py`, and so on. This is deliberate: the long-term intent is
+— `arousal_exp` in `emote.py`, `CURRENT_KEY` in `mi/global_parameters.py`,
+`MAX_ACCENT_DB` in `mi/instrument.py`, the whole tunable block in
+`mi/drum_instrument.py`, and so on. This is deliberate: the long-term intent is
 for that parameter set to become trainable, which means it has to be named and
 centralized before it can be learned. The "Config Dictionaries and File Loading"
 module named in the original architecture is not yet built.

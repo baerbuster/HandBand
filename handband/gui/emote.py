@@ -14,7 +14,7 @@ It owns no controls of its own. Like the MI window, it takes a
 `state_provider` callable returning the current
 {'input', 'valence', 'arousal'} and polls it continuously.
 
-Run directly:  python3 EMOTE_GUI.py
+Run directly:  python3 -m handband.gui.emote
 """
 
 import tkinter as tk

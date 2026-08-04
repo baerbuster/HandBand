@@ -1,7 +1,7 @@
 """
 Bass Pattern GUI
 
-A sibling of MI_Bass_Contour_GUI, in the same visual style and driven the
+A sibling of gui/bass_contour.py, in the same visual style and driven the
 same way: it renders the shared SongSource, so it shows the SAME song as
 every other view, off the one live Input slider (via EMOTE).
 
@@ -25,7 +25,7 @@ the screen in places where the pitch moves smoothly.
 The degrees are key-relative: degree 1 is the tonic of the key. They are
 not yet pointed at whatever chord is sounding.
 
-Run directly:  python3 MI_Bass_Pattern_GUI.py
+Run directly:  python3 -m handband.gui.bass_pattern
 """
 
 import tkinter as tk

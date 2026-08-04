@@ -1,6 +1,6 @@
 # Legacy — Programmable Song (2025)
 
-**Archived. Not maintained. Does not build. Superseded by `HandBand 4.0/`.**
+**Archived. Not maintained. Does not build. Superseded by the current system in `handband/`.**
 
 This is the prototype HandBand grew out of, developed April–October 2025.
 It is kept because the current system's ideas came from here, and because
@@ -16,7 +16,7 @@ a filter and effects chain, and drum/bass patterns that responded to a
 less maintainable as it grew — `programmable_song.py` ends at 199 KB in
 a single file.
 
-That ceiling is why HandBand 4.0 exists. The current system separates
+That ceiling is why the current system exists. The current system separates
 emotional mapping (EMOTE) from musical decisions (the Musical Intelligence
 instruments) from sound, which is precisely what this codebase could not
 do.

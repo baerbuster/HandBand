@@ -1,7 +1,7 @@
 """
 Instrument Test
 
-Test suite for MI_Instrument, in the same style as the engine suites.
+Test suite for mi/instrument.py, in the same style as the engine suites.
 Covers the four shared functions plus the constructor:
 
 - construction: stores personal parameters

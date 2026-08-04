@@ -3,7 +3,7 @@ Drum Instrument
 
 The kit: kick, snare, hat — three DrumElements, each a full Instrument
 in its own right, held by a thin DrumsInstrument container. First pass
-per MI_Drum_Instrument_Spec.md: triggers only (no fills, no toms, no
+per docs/MI_Drum_Instrument_Spec.md: triggers only (no fills, no toms, no
 synthesis), variant engine present but OFF.
 
 Output: ONE package, a dict keyed by stream name, each value a full
@@ -32,7 +32,7 @@ Departures from the spec's sources, recorded per its definition of done:
    count as an input, since even spacing has no meaning without it —
    `even` is the only archetype that reads it.
 2. `reference_mask` duplicates `chord_hit_mask`'s intent deliberately —
-   fractional vs. boolean; `MI_Bass_Instrument.py` left untouched
+   fractional vs. boolean; `mi/bass_instrument.py` left untouched
    (spec section 1.5).
 3. `DRUM_COUPLING_BOOST` is separate from the bass's `COUPLING_BOOST` —
    it multiplies a continuous mask where the bass's multiplies a boolean
@@ -277,7 +277,7 @@ def drum_archetype_weights(archetype, cell_slots, n_hits):
     """
     Build the named archetype's per-slot shape weight over the cell, and
     its capacity — the number of slots actually open (nonzero weight),
-    the same rule MI_Accent_Pattern_Engine.py:86 already applies. The
+    the same rule mi/accent_pattern_engine.py:86 already applies. The
     caller clamps its hit count to capacity before placing.
 
     Shapes are the instrument-family variants (front/back/center/random),

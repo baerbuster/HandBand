@@ -1,7 +1,7 @@
 """
 Accent Pattern Engine Test
 
-Comprehensive test suite for MI_Accent_Pattern_Engine, modeled on the
+Comprehensive test suite for mi/accent_pattern_engine.py, modeled on the
 Chord Progression Engine test suite. Runs up to 10,000 trials per
 statistical test to verify distributions, invariants, and directional
 biases behave as designed.

@@ -34,7 +34,7 @@ band-wide maps.
 Driven by the shared SongSource, so it always shows the SAME song as every
 other view, off the one live Input slider (via EMOTE).
 
-Run directly:  python3 MI_Score_GUI.py
+Run directly:  python3 -m handband.gui.score
 """
 
 import tkinter as tk
@@ -78,7 +78,7 @@ DRUM_HIT = "#fab387"          # the drum glyphs (orange)
 DRUM_ROW_LINE = "#313244"     # faint separators between the tab rows
 
 # The BPM window the header readout maps valence into (min/max BPM are
-# configurable at the caller level, per MI_Global_Parameters).
+# configurable at the caller level, per mi/global_parameters.py).
 SCORE_MIN_BPM = 60
 SCORE_MAX_BPM = 180
 

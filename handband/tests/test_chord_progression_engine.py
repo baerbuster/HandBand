@@ -1,7 +1,7 @@
 """
 Chord Progression Engine Test
 
-Comprehensive test suite for MI_Chord_Progression_Engine.
+Comprehensive test suite for mi/chord_progression_engine.py.
 Runs 10,000 trials per statistical test to verify that
 distributions, invariants, and directional biases all
 behave as designed.
