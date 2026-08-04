@@ -144,6 +144,7 @@ handband/                the current system, a Python package
 
 docs/                    design documents and screenshots
 legacy/                  the 2025 prototype, archived — see legacy/README.md
+CHANGELOG.md             what shipped when, and what hasn't yet
 ```
 
 ---
