@@ -17,7 +17,7 @@ Covers the four shared functions plus the constructor:
 """
 
 import random
-from MI_Instrument import (
+from handband.mi.instrument import (
     Instrument,
     MAX_ACCENT_DB,
     METRIC_STRENGTH,

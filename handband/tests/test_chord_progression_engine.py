@@ -47,7 +47,7 @@ Tests marked "(visual)" pass as long as they don't crash.
 import random
 import math
 from collections import Counter
-from MI_Chord_Progression_Engine import (
+from handband.mi.chord_progression_engine import (
     calculate_prog_length_weights,
     prog_length_calculator,
     chord_density_calculator,

@@ -1,12 +1,12 @@
-from input import Input
-from emote import EMOTE
-from EMOTE_GUI import attach_to as attach_emote
-from MI_Chord_Progression_GUI import attach_to as attach_mi
-from MI_Chord_Instrument_GUI import attach_to as attach_chord_inst
-from MI_Bass_Contour_GUI import attach_to as attach_bass_contour
-from MI_Bass_Pattern_GUI import attach_to as attach_bass_pattern
-from MI_Score_GUI import attach_to as attach_score
-from MI_Song_Source import SongSource
+from handband.input import Input
+from handband.emote import EMOTE
+from handband.gui.emote import attach_to as attach_emote
+from handband.gui.chord_progression import attach_to as attach_mi
+from handband.gui.chord_instrument import attach_to as attach_chord_inst
+from handband.gui.bass_contour import attach_to as attach_bass_contour
+from handband.gui.bass_pattern import attach_to as attach_bass_pattern
+from handband.gui.score import attach_to as attach_score
+from handband.mi.song_source import SongSource
 import tkinter as tk
 
 

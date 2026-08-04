@@ -30,7 +30,7 @@ Tests marked "(visual)" pass as long as they don't crash.
 import math
 import random
 from collections import Counter
-from MI_Groove_Delay_Engine import (
+from handband.mi.groove_delay_engine import (
     groove_density_calculator,
     groove_archetype_calculator,
     choose_groove_archetype,

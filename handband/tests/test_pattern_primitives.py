@@ -31,7 +31,7 @@ they pass as long as they don't crash.
 import random
 import math
 from collections import Counter
-from MI_Pattern_Primitives import weighted_choice, density_calculator, selected_patterns, generate_variation, archetype_placer
+from handband.mi.pattern_primitives import weighted_choice, density_calculator, selected_patterns, generate_variation, archetype_placer
 
 
 # ============================================================

@@ -57,10 +57,10 @@ Departures from the spec's sources, recorded per its definition of done:
 
 import random
 
-from MI_Instrument import Instrument
-from MI_Pattern_Primitives import weighted_choice, archetype_placer
-from MI_Bass_Instrument import bass_cell_measures   # the ONLY bass import
-from MI_Global_Parameters import CURRENT_KEY
+from handband.mi.instrument import Instrument
+from handband.mi.pattern_primitives import weighted_choice, archetype_placer
+from handband.mi.bass_instrument import bass_cell_measures   # the ONLY bass import
+from handband.mi.global_parameters import CURRENT_KEY
 
 SLOTS_PER_MEASURE = 16
 

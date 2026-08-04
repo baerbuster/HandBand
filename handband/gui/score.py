@@ -40,11 +40,11 @@ Run directly:  python3 MI_Score_GUI.py
 import tkinter as tk
 from tkinter import font as tkfont
 
-from MI_Song_Source import SongSource
-from MI_Chord_Instrument import active_chords
-from MI_Bass_Modes import modal_degree_label
-from MI_Instrument import MAX_ACCENT_DB
-from MI_Global_Parameters import CURRENT_KEY, calculate_global_parameters
+from handband.mi.song_source import SongSource
+from handband.mi.chord_instrument import active_chords
+from handband.mi.bass_modes import modal_degree_label
+from handband.mi.instrument import MAX_ACCENT_DB
+from handband.mi.global_parameters import CURRENT_KEY, calculate_global_parameters
 
 SLOTS_PER_MEASURE = 16
 SLOTS_PER_BEAT = 4

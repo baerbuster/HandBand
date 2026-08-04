@@ -31,8 +31,8 @@ Run directly:  python3 MI_Bass_Pattern_GUI.py
 import tkinter as tk
 from tkinter import font as tkfont
 
-from MI_Song_Source import SongSource
-from MI_Bass_Instrument import (CONTOUR_CENTER, DEGREES_PER_OCTAVE,
+from handband.mi.song_source import SongSource
+from handband.mi.bass_instrument import (CONTOUR_CENTER, DEGREES_PER_OCTAVE,
                                 from_symbolic_degree)
 
 SLOTS_PER_MEASURE = 16

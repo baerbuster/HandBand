@@ -12,16 +12,16 @@ ONCE per input change and caches it. Every view polls the same instance;
 the bundle carries a 'key' so a view knows when to redraw.
 """
 
-from MI_Chord_Progression_Engine import create_song_form, create_chord_progression
-from MI_Accent_Pattern_Engine import create_accent_pattern
-from MI_Groove_Delay_Engine import create_groove_pattern
-from MI_Chord_Instrument import (default_chord_instrument,
+from handband.mi.chord_progression_engine import create_song_form, create_chord_progression
+from handband.mi.accent_pattern_engine import create_accent_pattern
+from handband.mi.groove_delay_engine import create_groove_pattern
+from handband.mi.chord_instrument import (default_chord_instrument,
                                  create_chord_instrument_part,
                                  realize_chord_notes)
-from MI_Bass_Instrument import (bass_cell_measures, default_bass_instrument,
+from handband.mi.bass_instrument import (bass_cell_measures, default_bass_instrument,
                                 create_bass_pattern_cell, realize_bass_notes,
                                 bass_degree_stream)
-from MI_Drum_Instrument import default_drum_instrument, create_drum_part
+from handband.mi.drum_instrument import default_drum_instrument, create_drum_part
 
 
 class SongSource:

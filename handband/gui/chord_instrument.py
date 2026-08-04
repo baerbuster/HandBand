@@ -20,7 +20,7 @@ Run directly:  python3 MI_Chord_Instrument_GUI.py
 import tkinter as tk
 from tkinter import font as tkfont
 
-from MI_Song_Source import SongSource
+from handband.mi.song_source import SongSource
 
 SLOTS_PER_MEASURE = 16
 SLOTS_PER_BEAT = 4

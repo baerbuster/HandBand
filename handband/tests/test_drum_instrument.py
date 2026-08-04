@@ -22,7 +22,7 @@ suites. Covers the spec's required list:
 
 import random
 
-from MI_Drum_Instrument import (
+from handband.mi.drum_instrument import (
     DrumElement,
     DrumsInstrument,
     default_drum_instrument,
@@ -38,8 +38,8 @@ from MI_Drum_Instrument import (
     HAT_OCTAVE,
     SLOTS_PER_MEASURE,
 )
-from MI_Bass_Instrument import bass_cell_measures
-from MI_Global_Parameters import CURRENT_KEY
+from handband.mi.bass_instrument import bass_cell_measures
+from handband.mi.global_parameters import CURRENT_KEY
 
 
 # ============================================================

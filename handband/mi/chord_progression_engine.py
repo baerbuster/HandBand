@@ -24,7 +24,7 @@ Output: flat list of Roman numeral strings (or "C" for
 continuation slots), one entry per 16th-note position.
 """
 
-from MI_Pattern_Primitives import weighted_choice, selected_patterns, generate_variation, archetype_placer
+from handband.mi.pattern_primitives import weighted_choice, selected_patterns, generate_variation, archetype_placer
 import random
 
 STATIC_DENSITY_SCALAR = 4

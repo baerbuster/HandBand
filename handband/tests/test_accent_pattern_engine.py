@@ -27,7 +27,7 @@ Tests marked "(visual)" pass as long as they don't crash.
 
 import random
 from collections import Counter
-from MI_Accent_Pattern_Engine import (
+from handband.mi.accent_pattern_engine import (
     accent_density_calculator,
     accent_archetype_calculator,
     choose_accent_archetype,

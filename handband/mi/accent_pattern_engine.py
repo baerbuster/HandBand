@@ -26,7 +26,7 @@ Output: a flat binary accent matrix, one entry per 16th-note slot
 (1 = accented, 0 = not), the same length as the chord progression.
 """
 
-from MI_Pattern_Primitives import (
+from handband.mi.pattern_primitives import (
     weighted_choice, density_calculator, archetype_placer,
 )
 import random

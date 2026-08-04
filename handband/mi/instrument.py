@@ -41,7 +41,7 @@ The numeric constants here (MAX_ACCENT_DB, the metric hierarchy) are
 first-pass values meant to be tuned later; the structure is the point.
 """
 
-from MI_Pattern_Primitives import weighted_choice
+from handband.mi.pattern_primitives import weighted_choice
 
 SLOTS_PER_MEASURE = 16
 MAX_ACCENT_DB = 6.0          # loudest boost a fully accent-following instrument adds

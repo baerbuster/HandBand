@@ -38,12 +38,12 @@ Pitch/voicing is deferred — the chord is still just its Roman-numeral
 string; a resolver turns it into notes later.
 """
 
-from MI_Instrument import Instrument
-from MI_Pattern_Primitives import weighted_choice, archetype_placer
-from MI_Chord_Library import (chord_intervals, chord_root_offset,
+from handband.mi.instrument import Instrument
+from handband.mi.pattern_primitives import weighted_choice, archetype_placer
+from handband.mi.chord_library import (chord_intervals, chord_root_offset,
                               notes_from_root, chord_to_midi, voice_lead,
                               rotate_voicing, clamp_to_register)
-from MI_Global_Parameters import CURRENT_KEY
+from handband.mi.global_parameters import CURRENT_KEY
 import random
 
 SLOTS_PER_MEASURE = 16

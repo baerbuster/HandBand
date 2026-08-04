@@ -41,7 +41,7 @@ Future work (not now): per-hit sin()/cos() stochasticism so
 displaced hits vary instead of sharing one uniform magnitude.
 """
 
-from MI_Pattern_Primitives import (
+from handband.mi.pattern_primitives import (
     weighted_choice, density_calculator, archetype_placer,
 )
 import random

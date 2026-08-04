@@ -17,8 +17,8 @@ What to look for:
 via Instrument.register_octaves.)
 """
 
-from emote import EMOTE
-from MI_Global_Parameters import calculate_global_parameters
+from handband.emote import EMOTE
+from handband.mi.global_parameters import calculate_global_parameters
 
 MIN_BPM = 80
 MAX_BPM = 180

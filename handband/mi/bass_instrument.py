@@ -41,12 +41,12 @@ Tier 3 — the integrator:
 import math
 import random
 
-from MI_Instrument import Instrument
-from MI_Pattern_Primitives import weighted_choice, archetype_placer
-from MI_Chord_Library import chord_root_offset, clamp_to_register
-from MI_Chord_Instrument import active_chords
-from MI_Bass_Modes import mode_for_chord, degree_to_semitone, modal_degree_label
-from MI_Global_Parameters import CURRENT_KEY
+from handband.mi.instrument import Instrument
+from handband.mi.pattern_primitives import weighted_choice, archetype_placer
+from handband.mi.chord_library import chord_root_offset, clamp_to_register
+from handband.mi.chord_instrument import active_chords
+from handband.mi.bass_modes import mode_for_chord, degree_to_semitone, modal_degree_label
+from handband.mi.global_parameters import CURRENT_KEY
 
 SLOTS_PER_MEASURE = 16
 
