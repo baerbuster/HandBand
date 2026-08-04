@@ -152,7 +152,7 @@ def create_accent_pattern(prog_measure_length, arousal, repetition_pattern):
 
 
 if __name__ == "__main__":
-    from MI_Chord_Progression_Engine import create_song_form
+    from handband.mi.chord_progression_engine import create_song_form
 
     for valence, arousal in [(-0.6, 0.2), (0.2, 0.6), (0.7, 0.9), (1.0, 1.0)]:
         prog_measure_length, _chord_density, repetition_pattern = create_song_form(valence, arousal)

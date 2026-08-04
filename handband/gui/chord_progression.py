@@ -341,8 +341,8 @@ def main():
     Standalone launch: spins up the real Input + EMOTE pipeline so the
     window is driven by the same emotional input as the main program.
     """
-    from input import Input
-    from emote import EMOTE
+    from handband.input import Input
+    from handband.emote import EMOTE
 
     input_val = Input()
     emote = EMOTE()

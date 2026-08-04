@@ -239,9 +239,9 @@ def realize_chord_notes(part, arousal, instrument, accent_map, groove_vector):
 
 
 if __name__ == "__main__":
-    from MI_Chord_Progression_Engine import create_song_form, create_chord_progression
-    from MI_Accent_Pattern_Engine import create_accent_pattern
-    from MI_Groove_Delay_Engine import create_groove_pattern
+    from handband.mi.chord_progression_engine import create_song_form, create_chord_progression
+    from handband.mi.accent_pattern_engine import create_accent_pattern
+    from handband.mi.groove_delay_engine import create_groove_pattern
 
     def render(sequence):
         rows = []

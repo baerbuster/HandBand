@@ -777,11 +777,11 @@ if __name__ == "__main__":
         print()
 
     # Rhythm cell: show the bass part against the chord part it couples to.
-    from MI_Chord_Progression_Engine import create_song_form, create_chord_progression
-    from MI_Chord_Instrument import (default_chord_instrument,
+    from handband.mi.chord_progression_engine import create_song_form, create_chord_progression
+    from handband.mi.chord_instrument import (default_chord_instrument,
                                      create_chord_instrument_part)
-    from MI_Accent_Pattern_Engine import create_accent_pattern
-    from MI_Groove_Delay_Engine import create_groove_pattern
+    from handband.mi.accent_pattern_engine import create_accent_pattern
+    from handband.mi.groove_delay_engine import create_groove_pattern
 
     def rows(symbols, glyphs):
         return ["".join(glyphs[s] for s in symbols[i:i + SLOTS_PER_MEASURE])

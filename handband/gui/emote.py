@@ -130,8 +130,8 @@ def attach_to(parent, state_provider):
 
 def main():
     """Standalone launch on the real Input + EMOTE pipeline."""
-    from input import Input
-    from emote import EMOTE
+    from handband.input import Input
+    from handband.emote import EMOTE
 
     input_val = Input()
     emote = EMOTE()
