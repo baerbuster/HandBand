@@ -251,10 +251,11 @@ off. Percussion is one-shot, so its alphabet is only `H` and `R`.
 297 tests across seven suites. All passing. They run two ways.
 
 Under pytest, if you have it — the only third-party package this repo uses, and
-only for this:
+only for this. `pytest.ini` scopes collection to `handband/tests`, so a bare
+invocation from the repo root is enough:
 
 ```bash
-pytest handband/tests
+pytest
 ```
 
 Or standalone, with no dependencies at all, which prints each suite's own
