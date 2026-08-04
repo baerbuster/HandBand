@@ -1,10 +1,11 @@
 # Domain Parameters
 
 The full parameter inventory across the four domains, converted verbatim
-from `HandBand Stuff.pages`. It predates the Musical/Sonic **Domain** ->
-**Intelligence** rename, and it describes the 2025 prototype's parameter
-set -- so read it as the source material for module 4 (Sonic
-Intelligence, not started) rather than as a description of what is built.
+from `HandBand Stuff.pages`, which this file replaces. It predates the
+Musical/Sonic **Domain** -> **Intelligence** rename, and it describes the
+2025 prototype's parameter set -- so read it as the source material for
+module 4 (Sonic Intelligence, not started) rather than as a description
+of what is built.
 
 # SONIC DOMAIN - Parameters controlling TIMBRE:
 

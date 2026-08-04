@@ -1,9 +1,9 @@
 # HandBand Music Sequencer - Technical Documentation
 
-> Converted verbatim from `HandBand DOcumentation.pages`, which sits
-> beside this file. It documents the **2025 prototype** in this folder --
-> the Python/C++ system described below is `legacy/programmable-song/`,
-> not the current `handband/` package.
+> Converted verbatim from `HandBand Documentation.pages`, which this file
+> replaces. It documents the **2025 prototype** in this folder -- the
+> Python/C++ system described below is `legacy/programmable-song/`, not
+> the current `handband/` package.
 
 ## System Overview
 
