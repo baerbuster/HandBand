@@ -11,6 +11,35 @@ starts at `v0.1.0` — a separate lineage, sharing ideas but no code.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **Test suites for every previously untested module.** Eight new suites —
+  `emote`, `bass_modes`, `chord_library`, `chord_instrument`,
+  `bass_instrument`, `song_source`, `score_view`, `views` — taking the project
+  from 297 tests across 7 suites to **560 across 15**. Every module in
+  `handband/` now has a suite.
+- **`test_views.py`** — builds all six tkinter views on a hidden Tk root and
+  drives them through the emotional corners and both song-length extremes
+  without entering an event loop. Skips itself where no display exists.
+- **Coverage measurement.** `.coveragerc` (excluding the `__main__` demo
+  blocks), a `coverage` job in CI that publishes the report to the run summary
+  and gates at 90%, and a README section. **`mi/` and `emote.py` are at 100%;**
+  the package is at 92%, the remainder being launcher code that opens windows.
+- CI now installs Tk and runs under `xvfb`, so the GUI suites execute there
+  rather than skipping.
+
+### Changed
+
+- `test_global_parameters.py` was a smoke test that printed a table and
+  asserted nothing — pytest collected zero tests from it. It is now a real
+  suite of 11, pinning the BPM curve (endpoints, the geometric-mean midpoint
+  that makes the log mapping worth having, monotonicity, caller-supplied
+  windows). The printed sweep is kept.
+
+---
+
 ## [0.1.0] — 2026-08-04
 
 First tagged release of the current system. It composes a complete song from a

@@ -140,7 +140,7 @@ handband/                the current system, a Python package
     instrument.py            the base class every instrument extends
     song_source.py           one shared song, so all views agree
   gui/                     six tkinter views
-  tests/                   seven test suites, 297 tests
+  tests/                   fifteen test suites, 560 tests
 
 docs/                    design documents and screenshots
 legacy/                  the 2025 prototype, archived — see legacy/README.md
@@ -251,7 +251,8 @@ off. Percussion is one-shot, so its alphabet is only `H` and `R`.
 
 ## Tests
 
-297 tests across seven suites. All passing. They run two ways.
+560 tests across fifteen suites — **every module in the package has one.** All
+passing. They run two ways.
 
 Under pytest, if you have it — the only third-party package this repo uses, and
 only for this. `pytest.ini` scopes collection to `handband/tests`, so a bare
@@ -270,24 +271,55 @@ for f in handband/tests/test_*.py; do
 done
 ```
 
-| Suite | Tests |
-|---|---|
-| `tests/test_chord_progression_engine.py` | 94 |
-| `tests/test_pattern_primitives.py` | 58 |
-| `tests/test_groove_delay_engine.py` | 44 |
-| `tests/test_accent_pattern_engine.py` | 40 |
-| `tests/test_drum_instrument.py` | 32 |
-| `tests/test_instrument.py` | 29 |
-| `tests/test_global_parameters.py` | smoke test (prints a table) |
+| Suite | Tests | Covers |
+|---|---|---|
+| `tests/test_chord_progression_engine.py` | 95 | `mi/chord_progression_engine.py` |
+| `tests/test_bass_instrument.py` | 73 | `mi/bass_instrument.py` |
+| `tests/test_pattern_primitives.py` | 58 | `mi/pattern_primitives.py` |
+| `tests/test_chord_library.py` | 46 | `mi/chord_library.py` |
+| `tests/test_groove_delay_engine.py` | 44 | `mi/groove_delay_engine.py` |
+| `tests/test_accent_pattern_engine.py` | 40 | `mi/accent_pattern_engine.py` |
+| `tests/test_drum_instrument.py` | 36 | `mi/drum_instrument.py` |
+| `tests/test_chord_instrument.py` | 36 | `mi/chord_instrument.py` |
+| `tests/test_instrument.py` | 29 | `mi/instrument.py` |
+| `tests/test_bass_modes.py` | 25 | `mi/bass_modes.py` |
+| `tests/test_song_source.py` | 22 | `mi/song_source.py` |
+| `tests/test_score_view.py` | 18 | `gui/score.py`'s pure helpers |
+| `tests/test_emote.py` | 17 | `emote.py` |
+| `tests/test_global_parameters.py` | 11 | `mi/global_parameters.py` |
+| `tests/test_views.py` | 10 | all six `gui/` views (smoke) |
 
 The suites are hand-rolled. Each file defines its checks as plain `test_*`
 functions and drives them itself, from a `main()` behind a `__main__` guard —
 so importing a suite runs nothing, which is what lets pytest collect the same
-297 functions without the file executing itself first. They assert **invariants** rather
+560 functions without the file executing itself first. They assert **invariants** rather
 than fixed expected values, which suits a system whose output is random by
 design: that a result rises monotonically with arousal, that no option is ever
 unreachable at any emotional extreme, that a count never exceeds its capacity,
 that the corners of the emotional range don't crash.
+
+### Coverage
+
+**100% of `mi/` and `emote.py`** — every statement of the symbolic music
+engine, the half of the system that is actually built. 92% of the package
+overall.
+
+```bash
+pip install coverage
+coverage run -m pytest && coverage report
+```
+
+`.coveragerc` excludes the `if __name__ == "__main__"` demo blocks that end
+every `mi/` module — they print an ASCII rendering of what the module
+generates, and are worth keeping without being worth testing.
+
+What the remaining 8% is: the launchers. `input.py` (the Tk slider), `main.py`
+(window wiring), and each view's standalone `main()`. They open windows and
+enter an event loop; the drawing they lead to is covered by `test_views.py`,
+which builds every view on a hidden Tk root and drives it through the
+emotional corners and both song-length extremes without ever entering the
+loop. That suite skips itself where no display exists, so it never turns a
+headless machine red.
 
 ---
 
