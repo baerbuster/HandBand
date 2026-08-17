@@ -649,6 +649,23 @@ def test_ada_chord_values_preserved():
         assert sorted(non_c) == sorted(chords), \
             f"Chord values changed: expected {chords}, got {non_c}"
 
+def test_cda_single_slot_section():
+    # The degenerate section. Unreachable from create_chord_progression --
+    # a pattern can never be longer than chord_density (4 per measure),
+    # so a section is at least 4 slots -- but the helper is public and
+    # symmetrical's half-width goes to 0 here, so its contract is pinned:
+    # one weight, a capacity of 0 or 1, and a chord lands whenever there
+    # is a slot open for it.
+    for _ in range(500):
+        weights, capacity = choose_duration_archetype(1)
+        assert len(weights) == 1, f"a 1-slot section got {len(weights)} weights"
+        assert capacity in (0, 1), f"a 1-slot section has capacity {capacity}"
+        assert capacity == sum(1 for w in weights if w > 0), \
+            "capacity disagrees with the open slots"
+        if capacity:
+            assert apply_duration_archetype(1, ["I"], weights) == ["I"], \
+                "the single open slot did not receive the chord"
+
 def test_ada_density_one_exactly_one_hit():
     for _ in range(500):
         weights, _ = choose_duration_archetype(16)
@@ -1127,6 +1144,8 @@ def main():
     run_test("chord identities are preserved (just reordered into slots)", test_ada_chord_values_preserved)
 
     run_test("density=1 places exactly one chord", test_ada_density_one_exactly_one_hit)
+
+    run_test("a one-slot section survives every archetype", test_cda_single_slot_section)
 
 
     # ============================================================

@@ -426,6 +426,49 @@ def test_ic_cycle_raises():
     except ValueError as e:
         assert "cyclic" in str(e).lower()
 
+def test_ic_duplicate_element_names_raise():
+    try:
+        DrumsInstrument([element(name="kick"), element(name="kick")])
+        assert False, "two elements with one name did not raise"
+    except ValueError as e:
+        assert "kick" in str(e), f"error does not name the offender: {e}"
+
+def test_ic_duplicate_stream_key_raises():
+    # two elements can collide on a STREAM key without colliding on an
+    # element name: a variant table can name another element's stream
+    kit = DrumsInstrument([
+        element(name="kick",
+                variant_table={"axis": "valence",
+                               "variants": [("snare", 0.0)]}),
+        element(name="snare"),
+    ])
+    prog, accents, groove, refs = make_song(2)
+    try:
+        kit.create_part(0.0, 0.5, prog, accents, groove, refs)
+        assert False, "a duplicate stream key did not raise"
+    except ValueError as e:
+        assert "snare" in str(e), f"error does not name the offender: {e}"
+
+def test_ref_mask_reads_every_slot_spelling():
+    # the shared per-slot formats: the bass's plain string, the chord
+    # instrument's (sym, data) tuples, and a realized {"type": ...} dict
+    plain = ["H", "C", "X", "X"] * 8
+    tuples = [("H", "I"), ("C", "I"), ("R", None), ("R", None)] * 8
+    dicts = [{"type": "H", "notes": [36]}, {"type": "C"},
+             {"type": "R"}, {"type": "R"}] * 8
+    expected = reference_mask(plain, 16)
+    assert reference_mask(tuples, 16) == expected, \
+        "a (symbol, data) part was read differently from the plain rhythm"
+    assert reference_mask(dicts, 16) == expected, \
+        "a realized stream was read differently from the plain rhythm"
+
+def test_wt_unknown_archetype_raises():
+    try:
+        drum_archetype_weights("boogie", 16, 4)
+        assert False, "an unknown archetype did not raise"
+    except ValueError as e:
+        assert "boogie" in str(e), f"error does not name the offender: {e}"
+
 
 def main():
     # ============================================================
@@ -591,6 +634,18 @@ def main():
 
     run_test("a cyclic coupling graph raises rather than deadlocking",
              test_ic_cycle_raises)
+
+    run_test("two elements sharing a name raise",
+             test_ic_duplicate_element_names_raise)
+
+    run_test("two elements colliding on a stream key raise",
+             test_ic_duplicate_stream_key_raises)
+
+    run_test("a reference is read in every shared per-slot spelling",
+             test_ref_mask_reads_every_slot_spelling)
+
+    run_test("an unknown archetype raises, naming it",
+             test_wt_unknown_archetype_raises)
 
 
     # ============================================================
