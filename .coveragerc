@@ -1,0 +1,20 @@
+# Coverage settings. Coverage is not a dependency of the project -- the
+# app and the suites both run without it; this file just means that when
+# someone does run it, everyone gets the same number.
+
+[run]
+source = handband
+omit =
+    handband/tests/*
+
+[report]
+# The `if __name__ == "__main__"` blocks are demo/eyeball code, not
+# library code -- every mi module ends with one that prints an ASCII
+# rendering of what it generates. They're worth keeping and not worth
+# testing, so they don't count against the total.
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+
+show_missing = True
+skip_covered = False

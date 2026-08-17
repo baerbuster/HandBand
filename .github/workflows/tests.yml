@@ -24,12 +24,18 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # pytest is the only dependency, and only for the tests. The app
-      # itself runs on the standard library alone.
+      # Tk plus a virtual display, so the GUI suites (test_views.py) really
+      # run here instead of skipping. They skip cleanly without a display,
+      # so this makes the runner stricter, never flakier.
+      - name: Tk and a virtual display
+        run: sudo apt-get update && sudo apt-get install -y python3-tk xvfb
+
+      # pytest is the only Python dependency, and only for the tests. The
+      # app itself runs on the standard library alone.
       - run: pip install pytest
 
       # pytest.ini scopes collection to handband/tests.
-      - run: pytest
+      - run: xvfb-run -a pytest
 
       # The suites also run standalone, with no pytest at all. Guarding
       # that path here keeps it from rotting -- it's the mode that keeps
@@ -37,5 +43,38 @@ jobs:
       - name: standalone runner
         run: |
           for f in handband/tests/test_*.py; do
-            python3 -m "handband.tests.$(basename "$f" .py)" || exit 1
+            xvfb-run -a python3 -m "handband.tests.$(basename "$f" .py)" || exit 1
           done
+
+  coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Tk and a virtual display
+        run: sudo apt-get update && sudo apt-get install -y python3-tk xvfb
+
+      - run: pip install pytest coverage
+
+      - name: measure
+        run: xvfb-run -a coverage run -m pytest -q
+
+      # Printed in full, then gated. The floor is deliberately below the
+      # real number (92%): it catches a suite quietly falling out of the
+      # run -- if the GUI tests ever start skipping here, coverage drops
+      # far past this and the job says so.
+      - name: report
+        run: |
+          coverage report
+          {
+            echo '## Coverage'
+            echo '```'
+            coverage report
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          coverage report --fail-under=90
